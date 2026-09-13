@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Supplier price list{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('research.brands') }}">{{ icon("arrow-left") }}Brands</a>
+<div class="page-head">
+  <div><h1>Supplier price list</h1>
+    <p class="lead">Your trade prices. Brand research matches them to Amazon products by ASIN (then EAN) to calculate profit. Uploading a new list replaces the old one.</p></div>
+  <a class="btn ghost" href="{{ url_for('research.supplier_template') }}">{{ icon("download") }}Template</a>
+</div>
+
+<div class="grid-2">
+  <section class="card">
+    <div class="card-head"><h2>{{ "Replace the price list" if summary.n else "Upload a price list" }}</h2></div>
+    <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="drop">{{ icon("file") }}<b>Choose a CSV or Excel file</b>
+        <small>Columns: ASIN and/or EAN, and a cost (e.g. “Unit cost”). Supplier and product name are optional.</small>
+        <span class="file-name" aria-live="polite"></span><input type="file" name="file" accept=".csv,.xlsx,.xlsm,.txt" aria-label="Price list file"></label>
+      <div class="row end mt"><button class="btn" type="submit" data-loading>{{ icon("upload") }}Save price list</button></div>
+    </form>
+    {% if problems %}
+    <div class="notice warn mt">{{ icon("alert") }}<div><h4>{{ problems|length }} row(s) skipped</h4>
+      <ul>{% for n, msg in problems[:30] %}<li>Row {{ n }}: {{ msg }}</li>{% endfor %}</ul></div></div>
+    {% endif %}
+  </section>
+  <section class="card">
+    <div class="card-head"><h2>Current list</h2></div>
+    {% if summary.n %}
+    <dl class="kv"><dt>Prices</dt><dd>{{ summary.n }}</dd><dt>File</dt><dd>{{ summary.source_name }}</dd><dt>Saved</dt><dd>{{ summary.updated_at|datetime }}</dd></dl>
+    <p class="fineprint">{{ icon("info") }}<span>A cost you type on a product yourself always wins over the price list.</span></p>
+    {% else %}
+    <p class="muted">No price list yet. Without one, researched products show “Sourcing cost required” and the highest cost that would still qualify.</p>
+    {% endif %}
+  </section>
+</div>
+
+{% if prices %}
+<section class="card mt">
+  <div class="table-wrap tall">
+    <table class="data">
+      <thead><tr><th>ASIN</th><th>EAN</th><th>Product</th><th>Supplier</th><th class="num">Cost</th></tr></thead>
+      <tbody>{% for p in prices %}<tr><td class="mono">{{ p.asin or "—" }}</td><td class="mono">{{ p.ean or "—" }}</td><td>{{ p.product_name or "—" }}</td>
+        <td>{{ p.supplier or "—" }}</td><td class="num">{{ p.cost|money }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  {% if summary.n > prices|length %}<p class="small muted mt-sm">Showing the first {{ prices|length }} of {{ summary.n }}.</p>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

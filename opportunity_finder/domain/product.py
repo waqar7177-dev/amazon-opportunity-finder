@@ -18,7 +18,14 @@ DATA_FIELDS = [
     "weight_g", "length_cm", "width_cm", "height_cm",
     "fulfilment", "referral_fee_override", "fba_fee_override",
     "restriction_status", *FLAG_KEYS, "notes", "source",
+    "availability", "field_meta", "brand_key",
 ]
+
+# Every automatically collected value records where it came from. Keys of Product.field_meta:
+#   {"selling_price": {"source": "amazon_product_page", "at": iso, "kind": "raw"|"estimated",
+#                      "certainty": "verified"|"uncertain", "note": "..."}}
+FIELD_KINDS = ("raw", "estimated")
+FIELD_CERTAINTY = ("verified", "uncertain")
 
 # Values that describe the Amazon listing itself; a change to any of them refreshes
 # "Amazon data last checked" and records a history snapshot.
@@ -69,6 +76,12 @@ class Product:
     notes: str | None = None
     source: str = SOURCE_MANUAL
     archived: bool = False
+
+    availability: str | None = None
+    field_meta: dict | None = None
+    brand_key: str | None = None
+    first_discovered_at: str | None = None
+    last_brand_search_id: int | None = None
 
     created_at: str | None = None
     updated_at: str | None = None

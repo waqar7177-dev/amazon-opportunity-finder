@@ -4,3 +4,6 @@ Flask>=3.0,<4
 openpyxl>=3.1,<4
 waitress>=3.0,<4
 python-dotenv>=1.0,<2
+# Brand research: drives the installed Microsoft Edge / Google Chrome (no browser download on Windows).
+playwright>=1.47,<2
+beautifulsoup4>=4.12,<5

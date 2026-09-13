@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import asdict, dataclass, fields
 
 from ..numbers import parse_bool, parse_number, parse_whole
@@ -51,6 +52,13 @@ class Settings:
     apply_fuel_surcharge: bool = True
     apply_low_price_fba: bool = True
     apply_peak_fees: bool = True
+    # Brand research (automated collection)
+    research_max_pages: int = 5
+    research_delay_seconds: float = 6.0
+    research_refresh_hours: int = 24
+    research_cache_hours: int = 12
+    research_postcode: str = "SW1A 1AA"
+    research_show_browser: bool = False
 
     @classmethod
     def defaults(cls) -> "Settings":
@@ -70,7 +78,17 @@ class Settings:
         return asdict(self)
 
     def fingerprint(self) -> str:
-        return hashlib.sha1(json.dumps(self.to_dict(), sort_keys=True).encode()).hexdigest()[:16]
+        """Everything that can change an evaluation. Collection-only settings are left out so changing the
+        browser pace does not re-evaluate every product."""
+        data = {k: v for k, v in self.to_dict().items() if not k.startswith("research_")}
+        return hashlib.sha1(json.dumps(data, sort_keys=True).encode()).hexdigest()[:16]
+
+    def criteria(self) -> dict:
+        """The qualification rules only — stored with each rejection so a later rule change can be spotted."""
+        return {k: getattr(self, k) for k in CRITERIA_FIELDS}
+
+    def criteria_fingerprint(self) -> str:
+        return hashlib.sha1(json.dumps(self.criteria(), sort_keys=True).encode()).hexdigest()[:16]
 
     @property
     def vat_on_fees(self) -> bool:
@@ -166,6 +184,29 @@ SETTING_GROUPS = [
     },
 ]
 
+SETTING_GROUPS.append({
+    "key": "research",
+    "title": "Brand research",
+    "lead": "How the brand search collects public Amazon UK pages. Slower is gentler and less likely to be blocked.",
+    "fields": [
+        {"name": "research_max_pages", "label": "Search result pages to scan per brand", "kind": "int", "min": 1, "max": 20,
+         "help": "Each page lists up to about 48 products. Scanning stops early when results stop matching the brand."},
+        {"name": "research_delay_seconds", "label": "Pause between page loads", "kind": "number", "min": 3, "max": 120, "unit": "sec",
+         "help": "At least 3 seconds, plus a random extra. A brand of 40 products takes roughly 40 × 2 × this pause."},
+        {"name": "research_refresh_hours", "label": "Re-collect a known product after", "kind": "int", "min": 1, "max": 2160, "unit": "hours",
+         "help": "Products checked more recently than this reuse their stored Amazon data instead of loading the pages again."},
+        {"name": "research_cache_hours", "label": "Keep downloaded pages for", "kind": "int", "min": 0, "max": 168, "unit": "hours",
+         "help": "Lets an interrupted search resume without loading pages again. 0 turns the cache off."},
+        {"name": "research_postcode", "label": "UK delivery postcode used for prices", "kind": "text", "maxlength": 10,
+         "pattern": r"^[A-Za-z]{1,2}\d[A-Za-z\d]?\s*\d[A-Za-z]{2}$",
+         "help": "Amazon shows UK prices, stock and sellers only for a UK delivery address. Any valid UK postcode works."},
+        {"name": "research_show_browser", "label": "Show the browser window while collecting", "kind": "bool",
+         "help": "Off by default. Turn on to watch what the collector sees if something looks wrong."},
+    ],
+})
+
+CRITERIA_FIELDS = ("min_total_sellers", "min_fba_sellers", "max_bsr", "min_monthly_sales", "min_net_profit", "min_roi")
+
 FIELD_SPECS = {f["name"]: f for group in SETTING_GROUPS for f in group["fields"]}
 
 
@@ -187,6 +228,11 @@ def validate_settings(form: dict, partial_ok: bool = False) -> tuple[Settings, d
             value, err = parse_whole(raw, label, minimum=spec.get("min"), maximum=spec.get("max"))
         elif kind == "choice":
             value, err = (raw, None) if raw in spec["choices"] else (None, f"Choose a valid option for {label}.")
+        elif kind == "text":
+            value = re.sub(r"\s+", " ", str(raw or "")).strip().upper() or None
+            err = None
+            if value and spec.get("pattern") and not re.fullmatch(spec["pattern"], value):
+                err = f"{label}: enter a valid UK postcode, for example SW1A 1AA."
         else:  # money / pct
             value, err = parse_number(raw, label, minimum=spec.get("min"), maximum=spec.get("max"), allow_negative=True)
         if err is None and value is None and kind != "bool":

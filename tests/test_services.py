@@ -41,7 +41,7 @@ def test_init_db_creates_schema_and_is_idempotent(db_path):
     conn = connect(db_path)
     names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"products", "settings", "product_snapshots", "evaluations", "meta"} <= names
-    assert schema_version(conn) == 1
+    assert schema_version(conn) == 2
     conn.close()
 
 

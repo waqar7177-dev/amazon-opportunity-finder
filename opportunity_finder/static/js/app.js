@@ -263,6 +263,35 @@
     });
   }
 
+  /* ------------------------------------------- brand research progress */
+  function initResearchProgress() {
+    const card = $("[data-research-progress]");
+    if (!card || card.hidden || !window.fetch) return;
+    const set = (key, value) => $$(`[data-p="${key}"]`, card).forEach((el) => { el.textContent = value; });
+    const poll = async () => {
+      try {
+        const response = await fetch(card.dataset.url, { credentials: "same-origin" });
+        if (!response.ok) throw new Error(String(response.status));
+        const data = await response.json();
+        set("status_label", data.status_label);
+        set("message", data.message);
+        set("done", data.done);
+        set("total", data.total);
+        Object.entries(data.counts).forEach(([k, v]) => set(`counts.${k}`, v));
+        const bar = $("[data-p-bar]", card);
+        if (bar) bar.style.width = `${data.percent}%`;
+        if (data.finished) {
+          window.location.reload();
+          return;
+        }
+      } catch (err) {
+        set("message", "Checking progress… (the analysis keeps running)");
+      }
+      setTimeout(poll, 2000);
+    };
+    setTimeout(poll, 1500);
+  }
+
   /* ----------------------------------------- auto-refresh import preview */
   function initAutoSubmit() {
     $$("[data-autosubmit]").forEach((control) => control.addEventListener("change", () => {
@@ -294,6 +323,7 @@
     initDropzones();
     initRowFilter();
     initAutoSubmit();
+    initResearchProgress();
     initFocus();
   });
 

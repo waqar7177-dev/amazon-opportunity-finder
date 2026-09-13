@@ -34,7 +34,13 @@ def rejected():
     service = get_service()
     items = service.items()
     tab = request.args.get("tab", "rejected")
-    tab = tab if tab in ("rejected", "incomplete") else "rejected"
+    tab = tab if tab in ("rejected", "incomplete", "history") else "rejected"
+    from ..app_factory import get_conn
+    from ..database.research_repository import ResearchRepository
+
+    research = ResearchRepository(get_conn())
+    history = research.rejected()
+    current_fp = service.settings.criteria_fingerprint()
     rejected_items = sorted((i for i in items if i["evaluation"]["status"] == REJECTED), key=lambda i: i["product"].display_name.lower())
     incomplete_items = sorted((i for i in items if i["evaluation"]["status"] == INCOMPLETE), key=lambda i: i["product"].display_name.lower())
 
@@ -42,4 +48,5 @@ def rejected():
     missing = Counter(m["label"] for i in incomplete_items for m in i["evaluation"]["missing"])
     return render_template("rejected.html", tab=tab, rejected=rejected_items, incomplete=incomplete_items,
                            failing=failing.most_common(), missing=missing.most_common(), rules=describe_rules(service.settings),
-                           field_labels=FIELD_LABELS)
+                           field_labels=FIELD_LABELS, history=history, current_fp=current_fp,
+                           changed_rules=sum(1 for h in history if h["criteria_fingerprint"] != current_fp))

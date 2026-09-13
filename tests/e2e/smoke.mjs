@@ -42,7 +42,8 @@ const toastText = async () => (await page.locator(".toast").allInnerTexts()).joi
 try {
   // ------------------------------------------------------------ dashboard
   await page.goto(`${BASE}/`);
-  check("dashboard loads", await page.locator("h1", { hasText: "Dashboard" }).isVisible());
+  check("dashboard loads", await page.locator("h1", { hasText: "Find Winning Products" }).isVisible());
+  check("dashboard has the brand input", await page.locator("#brand").isVisible() && await page.locator("button:has-text('Analyze Brand')").first().isVisible());
   await page.keyboard.press("Tab");
   check("first Tab reaches the skip link", await page.evaluate(() => document.activeElement.classList.contains("skip")));
   await shot("01-dashboard-empty");
@@ -186,8 +187,8 @@ try {
   await shot("12-opportunities");
   await page.goto(`${BASE}/rejected`);
   await shot("13-rejected");
-  await page.goto(`${BASE}/`);
-  const [download] = await Promise.all([page.waitForEvent("download"), page.click("a:has-text('Export Excel')")]);
+  await page.goto(`${BASE}/products`);
+  const [download] = await Promise.all([page.waitForEvent("download"), page.click(".page-head a:has-text('Excel')")]);
   const xlsx = path.join(os.tmpdir(), download.suggestedFilename());
   await download.saveAs(xlsx);
   const head = fs.readFileSync(xlsx).subarray(0, 2).toString();
@@ -199,7 +200,8 @@ try {
   m.on("pageerror", (err) => consoleErrors.push(`mobile ${m.url()} :: ${err.message}`));
   const firstProduct = await page.locator("a.product-link").first().getAttribute("href");
   for (const [name, url] of [["dashboard", "/"], ["products", "/products"], ["add", "/products/new?method=manual"],
-    ["detail", firstProduct], ["opportunities", "/opportunities"], ["rejected", "/rejected"], ["import", "/import"], ["settings", "/settings"]]) {
+    ["detail", firstProduct], ["opportunities", "/opportunities"], ["rejected", "/rejected"], ["import", "/import"], ["settings", "/settings"],
+    ["brands", "/brands"], ["supplier prices", "/supplier-prices"], ["skip list", "/rejected?tab=history"]]) {
     await m.goto(`${BASE}${url}`);
     const overflow = await m.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     check(`mobile ${name}: no sideways page scroll`, overflow <= 1, `${overflow}px`);

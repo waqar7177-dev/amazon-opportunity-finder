@@ -20,6 +20,11 @@ def now_iso() -> str:
 
 def _row_to_product(row: sqlite3.Row) -> Product:
     data = dict(row)
+    if isinstance(data.get("field_meta"), str):
+        try:
+            data["field_meta"] = json.loads(data["field_meta"])
+        except ValueError:
+            data["field_meta"] = None
     product = Product.from_mapping(data)
     if data.get("eval_json"):
         try:
@@ -204,6 +209,8 @@ class ProductRepository:
 def _db_value(value):
     if isinstance(value, bool):
         return int(value)
+    if isinstance(value, (dict, list)):
+        return json.dumps(value)
     return value
 
 

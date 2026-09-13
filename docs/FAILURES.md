@@ -18,6 +18,10 @@ Ask these before committing. Each line came from a real fault below.
 8. Have you looked at a screenshot of every changed page, at desktop and phone width — not only asserted that its text is present? *(F8)*
 9. Before a test flags browser console output as an error, is that output a consequence of behaviour the app does on purpose? *(F9)*
 10. Is every address or port shown to the user read from the same configuration the server uses — not typed a second time into a script or message? *(F10)*
+11. Does a brand-new database run every migration, or only an existing one? Test both paths. *(F11)*
+12. When a scripted find-and-replace edits a template, does the pattern occur exactly once? *(F12)*
+13. Can two workers (a thread and a direct call, or two threads) pick up the same job? Claim jobs atomically. *(F13)*
+14. When a user-typed name maps to a stored record, does every later use read the stored value, not the typed one? *(F14)*
 
 ---
 
@@ -155,3 +159,54 @@ Ask these before committing. Each line came from a real fault below.
 - **Fix:** both scripts say "open the address shown below"; `app.py` prints its banner (built from `Config`)
   with `flush=True` so it appears immediately even when output is redirected.
 - **Checklist line:** 10.
+
+## F11 — New databases skipped the version 2 migration
+
+- **What broke:** after adding schema v2 (brand research), every new database crashed on the first product
+  insert. `init_db` stamped a brand-new database with `SCHEMA_VERSION` — now 2 — right after creating the v1
+  tables, so migration 2 (the new columns and tables) never ran. Existing v1 databases migrated correctly.
+- **Measurement:** 2026-09-13, first test run after the change: 31 failed, 169 passed; e.g.
+  `test_update_notes_only_keeps_checked_date_and_snapshot` → `sqlite3.OperationalError: table products has no
+  column named availability`. The user's real database (v1, 0 products) would have been fine; every fresh
+  install would not.
+- **Why nothing caught it:** with only one schema version the shortcut was harmless; the bug appeared the
+  moment a second version existed, and only for the fresh-install path.
+- **Fix:** a new database is stamped version 1 (what `SCHEMA_V1` creates) and then receives every migration.
+- **Checklist line:** 11.
+
+## F12 — Template edit broke the Rejected page title
+
+- **What broke:** adding the "Skip list" tab wrapped the page in `{% if %}…{% endif %}` by replacing
+  `{% endblock %}` with `{% endif %}{% endblock %}` — but the title block also ends with `{% endblock %}`, so the
+  title became `Rejected &amp; incomplete{% endif %}`, a template syntax error.
+- **Measurement:** 2026-09-13, seen in the saved diff of `rejected.html` line 3 immediately after the edit,
+  before any test run.
+- **Why nothing caught it:** the scripted edit asserted the *tab* marker occurred once but not the second pattern.
+- **Fix:** restored the title block; only the final `{% endblock %}` carries the new `{% endif %}`.
+- **Checklist line:** 12.
+
+## F13 — Research tests ran every search twice at the same time
+
+- **What broke:** `ResearchRunner.start()` wakes a background worker thread; the tests then also called
+  `run_pending()` directly, so each search ran in two threads at once. Nothing stopped a second worker from
+  taking a search that was already running.
+- **Measurement:** 2026-09-13, same run as F11 after the fix: 5 failed, 187 passed. `B0BRIGHT02` was reported
+  `skipped_rejected` in its *first* search (the other worker had just rejected it);
+  `sqlite3.IntegrityError: UNIQUE constraint failed: brand_search_items.search_id, brand_search_items.asin`;
+  a cancelled search finished as `completed`.
+- **Why nothing caught it:** in the app only one worker thread exists, so the race never showed there; the
+  tests were the first code with two workers.
+- **Fix:** tests build the runner with `background=False`; `run_pending` now claims a search with
+  `UPDATE … SET status='running' WHERE id=? AND status='queued'` and skips it if another worker got there first.
+- **Checklist line:** 13.
+
+## F14 — "Analyze again" searched with whatever capitalisation was typed
+
+- **What broke:** brands are matched case-insensitively ("brightnest" finds the stored brand "Brightnest"), but the
+  new search stored the text exactly as typed as its query. The same brand could be searched and reported under
+  several spellings, and a report headline showed the lowercase text.
+- **Measurement:** 2026-09-13 test run: 227 passed, 3 failed; `test_analyze_brand_end_to_end` — the second search,
+  started as "brightnest", requested `https://www.amazon.co.uk/s?k=brightnest` while the brand record was "Brightnest".
+- **Why nothing caught it:** every earlier test typed the brand with identical capitalisation.
+- **Fix:** `ResearchRunner.start` uses the stored brand name as the search query.
+- **Checklist line:** 14.

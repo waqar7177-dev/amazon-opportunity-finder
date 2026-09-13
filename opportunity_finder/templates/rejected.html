@@ -15,7 +15,39 @@
     {{ icon("x-circle") }}Rejected <span class="count">{{ rejected|length }}</span></a>
   <a class="tab {{ 'on' if tab == 'incomplete' }}" href="{{ url_for('opportunities.rejected', tab='incomplete') }}" {% if tab == 'incomplete' %}aria-current="page"{% endif %}>
     {{ icon("help") }}Incomplete data <span class="count">{{ incomplete|length }}</span></a>
+  <a class="tab {{ 'on' if tab == 'history' }}" href="{{ url_for('opportunities.rejected', tab='history') }}" {% if tab == 'history' %}aria-current="page"{% endif %}>
+    {{ icon("archive") }}Skip list <span class="count">{{ history|length }}</span></a>
 </nav>
+
+{% if tab == 'history' %}
+<section class="card" aria-labelledby="skip-h">
+  <div class="card-head"><div><h2 id="skip-h">Previously rejected — skipped by brand research</h2>
+    <p class="sub">Brand searches don't spend time on these ASINs again. Allow a re-check if something has changed.</p></div></div>
+  {% if changed_rules %}<div class="notice warn mb">{{ icon("alert") }}<div><h4>{{ changed_rules }} rejected under different rules</h4>
+    <p>Your qualification rules changed since these were rejected. They are not re-checked automatically — allow a re-check, or analyze the brand with “Re-evaluate previously rejected products”.</p></div></div>{% endif %}
+  {% if history %}
+  <div class="table-wrap">
+    <table class="data" style="min-width:900px">
+      <thead><tr><th>Product</th><th>Brand</th><th>Rejected because</th><th>Rejected on</th><th>Rules</th><th></th></tr></thead>
+      <tbody>
+      {% for h in history %}
+        <tr><td><div class="cell-product">{% if h.product_id %}<a class="product-link" href="{{ url_for('products.detail', pid=h.product_id) }}">{{ h.title or h.asin }}</a>{% else %}<b>{{ h.title or h.asin }}</b>{% endif %}
+            <span class="meta"><span class="mono">{{ h.asin }}</span>{% if h.amazon_url %} · <a href="{{ h.amazon_url }}" target="_blank" rel="noopener noreferrer">Amazon {{ icon("external") }}</a>{% endif %}</span></div></td>
+          <td>{{ h.brand or "—" }}</td>
+          <td><ul class="small" style="margin:0;padding-left:16px">{% for r in h.reasons %}<li>{{ r }}</li>{% endfor %}</ul></td>
+          <td class="nowrap">{{ h.rejected_at|date }}</td>
+          <td>{% if h.criteria_fingerprint != current_fp %}<span class="badge warn">Rules changed</span>{% else %}<span class="badge mute">Current</span>{% endif %}</td>
+          <td><form method="post" action="{{ url_for('research.allow_recheck', asin=h.asin) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn ghost sm" type="submit">Allow re-check</button></form></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  {{ empty("check", "Nothing on the skip list", "Products rejected during brand research appear here.") }}
+  {% endif %}
+</section>
+{% else %}
 
 <div class="detail-grid">
   <section class="card" aria-live="polite">
@@ -88,4 +120,5 @@
     </section>
   </aside>
 </div>
+{% endif %}
 {% endblock %}

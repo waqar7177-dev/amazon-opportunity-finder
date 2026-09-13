@@ -9,7 +9,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -113,8 +113,103 @@ CREATE INDEX IF NOT EXISTS ix_evaluations_product ON evaluations(product_id, eva
 
 REQUIRED_TABLES = {"meta", "settings", "products", "product_snapshots", "evaluations"}
 
+# Version 2: automated brand research — brands, searches, per-search items, rejected history,
+# supplier price lists, and data-quality metadata on products.
+MIGRATION_V2 = """
+ALTER TABLE products ADD COLUMN field_meta TEXT;
+ALTER TABLE products ADD COLUMN availability TEXT;
+ALTER TABLE products ADD COLUMN brand_key TEXT;
+ALTER TABLE products ADD COLUMN first_discovered_at TEXT;
+ALTER TABLE products ADD COLUMN last_brand_search_id INTEGER;
+CREATE INDEX IF NOT EXISTS ix_products_brand_key ON products(brand_key);
+
+CREATE TABLE IF NOT EXISTS brands (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT NOT NULL,
+    name_key         TEXT NOT NULL UNIQUE,
+    created_at       TEXT NOT NULL,
+    last_analyzed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS brand_searches (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    brand_id             INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+    query                TEXT NOT NULL,
+    store_url            TEXT,
+    marketplace          TEXT NOT NULL DEFAULT 'amazon_uk',
+    reevaluate_rejected  INTEGER NOT NULL DEFAULT 0,
+    status               TEXT NOT NULL,
+    phase                TEXT,
+    message              TEXT,
+    progress_done        INTEGER NOT NULL DEFAULT 0,
+    progress_total       INTEGER NOT NULL DEFAULT 0,
+    pages_processed      INTEGER NOT NULL DEFAULT 0,
+    discovery_complete   INTEGER NOT NULL DEFAULT 0,
+    criteria_fingerprint TEXT,
+    created_at           TEXT NOT NULL,
+    started_at           TEXT,
+    finished_at          TEXT,
+    error                TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_brand_searches_brand ON brand_searches(brand_id, created_at);
+CREATE INDEX IF NOT EXISTS ix_brand_searches_status ON brand_searches(status);
+
+CREATE TABLE IF NOT EXISTS brand_search_items (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    search_id       INTEGER NOT NULL REFERENCES brand_searches(id) ON DELETE CASCADE,
+    asin            TEXT NOT NULL,
+    title           TEXT,
+    page            INTEGER,
+    position        INTEGER,
+    sponsored       INTEGER NOT NULL DEFAULT 0,
+    search_snapshot TEXT,
+    relevance       TEXT,
+    stage           TEXT NOT NULL,
+    outcome         TEXT,
+    was_known       INTEGER NOT NULL DEFAULT 0,
+    product_id      INTEGER REFERENCES products(id) ON DELETE SET NULL,
+    reasons         TEXT,
+    error           TEXT,
+    updated_at      TEXT NOT NULL,
+    UNIQUE (search_id, asin)
+);
+CREATE INDEX IF NOT EXISTS ix_brand_search_items_asin ON brand_search_items(asin);
+
+CREATE TABLE IF NOT EXISTS rejected_products (
+    asin                 TEXT PRIMARY KEY,
+    product_id           INTEGER REFERENCES products(id) ON DELETE SET NULL,
+    brand                TEXT,
+    title                TEXT,
+    amazon_url           TEXT,
+    reasons              TEXT NOT NULL,
+    failed_rules         TEXT NOT NULL,
+    criteria_fingerprint TEXT NOT NULL,
+    criteria             TEXT NOT NULL,
+    engine_version       TEXT NOT NULL,
+    search_id            INTEGER,
+    rejected_at          TEXT NOT NULL,
+    active               INTEGER NOT NULL DEFAULT 1,
+    cleared_at           TEXT
+);
+
+CREATE TABLE IF NOT EXISTS supplier_prices (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    asin         TEXT,
+    ean          TEXT,
+    supplier     TEXT,
+    product_name TEXT,
+    cost         REAL NOT NULL CHECK (cost >= 0),
+    source_name  TEXT,
+    updated_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_supplier_prices_asin ON supplier_prices(asin);
+CREATE INDEX IF NOT EXISTS ix_supplier_prices_ean ON supplier_prices(ean);
+"""
+
 # version -> SQL (or callable taking a connection). Append new versions here.
-MIGRATIONS: dict[int, str] = {}
+MIGRATIONS: dict[int, str] = {2: MIGRATION_V2}
+
+REQUIRED_TABLES_V2 = {"brands", "brand_searches", "brand_search_items", "rejected_products", "supplier_prices"}
 
 
 def connect(path: Path | str) -> sqlite3.Connection:
@@ -135,8 +230,10 @@ def init_db(path: Path | str) -> None:
         row = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
         current = int(row["value"]) if row else 0
         if current == 0:
-            conn.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
-            current = SCHEMA_VERSION
+            # A brand-new database has exactly the v1 tables created above, so it is version 1 and must
+            # still receive every later migration. (Stamping SCHEMA_VERSION here skipped them — FAILURES F11.)
+            conn.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', '1')")
+            current = 1
         for version in sorted(v for v in MIGRATIONS if v > current):
             step = MIGRATIONS[version]
             if callable(step):

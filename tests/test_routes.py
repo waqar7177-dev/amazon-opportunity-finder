@@ -56,7 +56,7 @@ def test_every_page_renders_when_empty(client, url):
     response = client.get(url)
     assert response.status_code == 200
     if url == "/":
-        assert "No products yet" in text(response)
+        assert "Find Winning Products" in text(response) and "No brands analyzed yet" in text(response)
 
 
 def test_security_headers_and_no_external_assets(client):
@@ -198,7 +198,7 @@ def test_opportunities_and_rejected_pages(client):
     assert "Rejected teapot" in text(client.get("/rejected"))
     assert "No sales data" in text(client.get("/rejected?tab=incomplete"))
     dash = text(client.get("/"))
-    assert "Top opportunities" in dash and "Route test kettle" in dash
+    assert "Winning products" in dash and "Route test kettle" in dash
 
 
 # ---------------------------------------------------------------- settings

@@ -75,6 +75,9 @@ class Config:
         self.SESSION_COOKIE_HTTPONLY = True
         self.SESSION_COOKIE_SAMESITE = "Lax"
         self.SECRET_KEY = overrides.pop("SECRET_KEY", None) or _secret_key(self.DATA_DIR)
+        # Brand research: tests swap in prepared pages and run searches inside the request.
+        self.RESEARCH_SOURCE_FACTORY = None
+        self.RESEARCH_SYNC = False
 
         for key, value in overrides.items():
             setattr(self, key, value)

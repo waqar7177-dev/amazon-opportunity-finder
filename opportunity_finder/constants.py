@@ -87,12 +87,43 @@ SOURCE_MANUAL = "manual"
 SOURCE_SMART_PASTE = "smart_paste"
 SOURCE_IMPORT = "import"
 SOURCE_KEEPA = "keepa"
+SOURCE_AMAZON = "amazon"
 SOURCE_LABELS = {
     SOURCE_MANUAL: "Manual entry",
     SOURCE_SMART_PASTE: "Smart paste",
     SOURCE_IMPORT: "Bulk import",
     SOURCE_KEEPA: "Keepa",
+    SOURCE_AMAZON: "Brand research",
 }
+
+# ------------------------------------------------------ brand research outcomes
+SKIPPED_REJECTED = "skipped_rejected"
+NOT_BRAND = "not_brand"
+COLLECTION_FAILED = "collection_failed"
+OUTCOME_LABELS = {
+    **STATUS_LABELS,
+    QUALIFIED: "Winning product",
+    SKIPPED_REJECTED: "Previously rejected — skipped",
+    NOT_BRAND: "Not this brand",
+    COLLECTION_FAILED: "Collection failed",
+}
+OUTCOME_STYLE = {
+    **STATUS_STYLE,
+    SKIPPED_REJECTED: {"tone": "mute", "symbol": "↷"},
+    NOT_BRAND: {"tone": "mute", "symbol": "–"},
+    COLLECTION_FAILED: {"tone": "warn", "symbol": "!"},
+}
+SEARCH_STATUS_LABELS = {
+    "queued": "Waiting to start",
+    "running": "Running",
+    "completed": "Complete",
+    "blocked": "Blocked by Amazon",
+    "failed": "Stopped with an error",
+    "interrupted": "Interrupted",
+    "cancelled": "Cancelled",
+}
+SEARCH_STATUS_TONE = {"queued": "mute", "running": "ink", "completed": "ok", "blocked": "warn", "failed": "bad",
+                      "interrupted": "warn", "cancelled": "mute"}
 
 FEE_DISCLAIMER = (
     "Confirm exact fees in Amazon Seller Central Revenue Calculator before purchasing stock."

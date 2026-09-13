@@ -32,6 +32,32 @@ def get_service() -> ProductService:
     return g.service
 
 
+def get_runner():
+    from flask import current_app
+    return current_app.extensions["research_runner"]
+
+
+def _init_research(app: Flask, config: Config) -> None:
+    from .database.research_repository import ResearchRepository
+    from .services.research_jobs import ResearchRunner, browser_source_factory
+
+    factory = config.RESEARCH_SOURCE_FACTORY or browser_source_factory(config.DATA_DIR)
+    runner = ResearchRunner(config.DATABASE_PATH, factory, background=not config.RESEARCH_SYNC)
+    app.extensions["research_runner"] = runner
+    conn = connect(config.DATABASE_PATH)
+    try:
+        repo = ResearchRepository(conn)
+        interrupted = repo.mark_interrupted()
+        queued = repo.queued_search_ids()
+        conn.commit()
+    finally:
+        conn.close()
+    if interrupted:
+        log.info("%s brand search(es) marked interrupted at start-up", interrupted)
+    if queued:
+        runner.wake()
+
+
 def create_app(config: Config | None = None) -> Flask:
     config = config or Config()
     app = Flask(__name__)
@@ -44,6 +70,7 @@ def create_app(config: Config | None = None) -> Flask:
     _configure_logging(app, config)
     init_db(config.DATABASE_PATH)
     init_security(app)
+    _init_research(app, config)
 
     @app.teardown_appcontext
     def _close_db(exc):
@@ -90,9 +117,9 @@ def _register_template_helpers(app: Flask) -> None:
 
 
 def _register_blueprints(app: Flask) -> None:
-    from .routes import api, dashboard, exports, imports, opportunities, products, settings
+    from .routes import api, dashboard, exports, imports, opportunities, products, research, settings
 
-    for module in (dashboard, products, opportunities, imports, settings, exports, api):
+    for module in (dashboard, research, products, opportunities, imports, settings, exports, api):
         app.register_blueprint(module.bp)
 
 

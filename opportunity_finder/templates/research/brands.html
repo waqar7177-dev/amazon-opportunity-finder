@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Brands{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Brands</h1><p class="lead">Every brand you have analyzed. Analyzing again skips products that were already rejected.</p></div>
+  <a class="btn ghost" href="{{ url_for('research.supplier_prices') }}">{{ icon("pound") }}Supplier price list</a>
+</div>
+<section class="card">
+{% if rows %}
+  <div class="table-wrap">
+    <table class="data" style="min-width:820px">
+      <thead><tr><th>Brand</th><th>Last analyzed</th><th>Status</th><th class="num">Discovered</th><th class="num">Skipped (rejected)</th>
+        <th class="num">Winning</th><th class="num">Rejected</th><th class="num">Incomplete</th><th></th></tr></thead>
+      <tbody>
+      {% for r in rows %}{% set s = r.last %}{% set c = r.counts %}
+        <tr><td><b>{{ r.brand.name }}</b><div class="small muted">{{ r.brand.search_count }} search{{ '' if r.brand.search_count == 1 else 'es' }}</div></td>
+          <td class="nowrap">{{ (r.brand.last_analyzed_at or r.brand.created_at)|date }}</td>
+          <td>{% if s %}<span class="badge {{ status_tone[s.status] }}">{{ status_labels[s.status] }}</span>{% endif %}</td>
+          <td class="num">{{ c.get('discovered', 0) }}</td><td class="num">{{ c.get('skipped_rejected', 0) }}</td>
+          <td class="num"><b>{{ c.get('qualified', 0) }}</b></td><td class="num">{{ c.get('rejected', 0) }}</td><td class="num">{{ c.get('incomplete', 0) }}</td>
+          <td class="nowrap">{% if s %}<a class="btn ghost sm" href="{{ url_for('research.search', search_id=s.id) }}">Report</a>{% endif %}
+            <form method="post" action="{{ url_for('research.start') }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="brand" value="{{ r.brand.name }}"><button class="btn sm" type="submit">Analyze again</button></form></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  {{ empty("search", "No brands yet", "Analyze a brand from the dashboard to build your brand history.", url_for('dashboard.index'), "Analyze a brand") }}
+{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, status_badge, risk_badge, est, score_pill, money_cell, empty %}
+{% block title %}{{ search.query }} — brand report{% endblock %}
+{% block content %}
+{% set c = report.counts %}
+{% set running = search.status in ("queued", "running") %}
+<a class="back" href="{{ url_for('research.brands') }}">{{ icon("arrow-left") }}All brands</a>
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Brand report · Amazon UK</p>
+    <h1>{{ search.query }}</h1>
+    <p class="lead">Started {{ search.started_at or search.created_at|datetime }} · {{ search.pages_processed }} result page{{ '' if search.pages_processed == 1 else 's' }} scanned
+      {% if search.reevaluate_rejected %}· previously rejected products re-checked{% endif %}</p>
+  </div>
+  {% if not running %}
+  <div class="row">
+    <a class="btn ghost" href="{{ url_for('research.export', search_id=search.id) }}" data-loading>{{ icon("download") }}Export Excel</a>
+    <form method="post" action="{{ url_for('research.start') }}" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="brand" value="{{ search.query }}">
+      <button class="btn" type="submit">{{ icon("refresh") }}Analyze again</button></form>
+  </div>
+  {% endif %}
+</div>
+
+<section class="card progress-card {{ 'is-live' if running }}" data-research-progress data-url="{{ url_for('research.progress', search_id=search.id) }}"
+         {% if not running %}hidden{% endif %} aria-live="polite">
+  <div class="row between">
+    <h2 class="h-sm"><span class="spin-dot" aria-hidden="true"></span> <span data-p="status_label">{{ progress.status_label }}</span></h2>
+    <form method="post" action="{{ url_for('research.cancel', search_id=search.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn ghost sm" type="submit">Stop</button></form>
+  </div>
+  <p class="mt-sm" data-p="message">{{ progress.message }}</p>
+  <div class="meter mt-sm"><div class="meter-track"><div class="meter-fill" data-p-bar style="width: {{ progress.percent }}%"></div></div>
+    <div class="meter-legend"><span><b data-p="done">{{ progress.done }}</b> of <b data-p="total">{{ progress.total }}</b> products checked</span>
+      <span><b data-p="counts.qualified">{{ c.get('qualified', 0) }}</b> winning · <b data-p="counts.rejected">{{ c.get('rejected', 0) }}</b> rejected · <b data-p="counts.skipped_rejected">{{ c.get('skipped_rejected', 0) }}</b> skipped</span></div></div>
+  <p class="fineprint">{{ icon("info") }}<span>Pages load slowly on purpose (a few seconds apart) to stay gentle on Amazon. You can leave this page — the analysis keeps running.</span></p>
+</section>
+
+{% if search.status in ("blocked", "failed", "interrupted", "cancelled") %}
+<div class="notice {{ 'warn' if search.status != 'failed' else 'bad' }} mb">{{ icon("alert") }}
+  <div style="flex:1"><h4>{{ status_labels[search.status] }}</h4><p>{{ search.message }}</p></div>
+  <form method="post" action="{{ url_for('research.resume', search_id=search.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn sm" type="submit">{{ icon("refresh") }}Resume</button></form>
+</div>
+{% endif %}
+
+<section class="stat-row" aria-label="Summary">
+  {% for label, value in [("Discovered", c.get('discovered', 0)), ("Previously analyzed", c.get('previously_analyzed', 0)),
+                          ("Previously rejected — skipped", c.get('skipped_rejected', 0)), ("New products analyzed", report.new_analyzed),
+                          ("Winning", report.winners|length), ("Rejected", report.rejected|length), ("Incomplete", report.incomplete|length),
+                          ("Collection failures", c.get('collection_failed', 0))] %}
+  <div class="stat"><span class="n">{{ value }}</span><span class="l">{{ label }}</span></div>
+  {% endfor %}
+</section>
+
+<section class="card mt" aria-labelledby="win-h">
+  <div class="card-head"><div><h2 id="win-h">{{ icon("trend") }}Top winning products</h2>
+    <p class="sub">Passed every rule, ranked by Opportunity Score. Figures marked {{ est() }} are estimates, not guaranteed income.</p></div></div>
+  {% if report.winners %}
+  <div class="table-wrap">
+    <table class="data" style="min-width:1250px">
+      <thead><tr><th class="num">Rank</th><th>Product</th><th class="num">Price</th><th class="num">BSR</th><th class="num">Sellers</th><th class="num">FBA</th>
+        <th class="num">Sales / mo {{ est() }}</th><th class="num">Cost</th><th class="num">Fees {{ est() }}</th><th class="num">Profit / unit {{ est() }}</th>
+        <th class="num">ROI {{ est() }}</th><th class="num">Cons. profit / mo {{ est() }}</th><th>Risk</th><th class="num">Score</th><th>Checked</th></tr></thead>
+      <tbody>
+      {% for w in report.winners %}{% set p = w.product %}{% set e = w.evaluation %}
+        <tr><td class="num"><b>{{ w.rank }}</b></td>
+          <td><div class="cell-product"><a class="product-link" href="{{ url_for('products.detail', pid=p.id) }}">{{ p.display_name }}</a>
+            <span class="meta"><span class="mono">{{ p.asin }}</span> · {{ p.brand or search.query }} · <a href="{{ p.amazon_url }}" target="_blank" rel="noopener noreferrer">Amazon {{ icon("external") }}</a></span></div></td>
+          <td class="num">{{ p.selling_price|money }}</td><td class="num">{{ p.bsr|whole }}</td><td class="num">{{ p.total_sellers|whole }}</td><td class="num">{{ p.fba_sellers|whole }}</td>
+          <td class="num">{{ p.monthly_sales|whole }}+</td><td class="num">{{ p.sourcing_price|money }}</td><td class="num">{{ e.fees.total_fees|money }}</td>
+          <td class="num">{{ money_cell(e.profit.net_profit) }}</td><td class="num">{{ e.profit.roi_pct|pct }}</td>
+          <td class="num"><b>{{ money_cell(e.profit.conservative_monthly_profit) }}</b></td><td>{{ risk_badge(e.risk.level) }}</td>
+          <td class="num">{{ score_pill(e.score.total if e.score else none) }}</td><td class="nowrap">{{ p.amazon_checked_at|ago }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% elif running %}
+  <p class="muted">Winners appear here as products are evaluated.</p>
+  {% else %}
+  <p class="muted">No product from this brand passed every rule{% if report.needs_cost %} yet — {{ report.needs_cost|length }} only need your sourcing cost{% endif %}.</p>
+  {% endif %}
+</section>
+
+{% if report.needs_cost %}
+<section class="card mt" aria-labelledby="cost-h">
+  <div class="card-head"><div><h2 id="cost-h">{{ icon("pound") }}Sourcing cost required</h2>
+    <p class="sub">Amazon data was collected, but profit can't be calculated without your trade price. Nothing is guessed.</p></div>
+    <a class="btn ghost sm" href="{{ url_for('research.supplier_prices') }}">{{ icon("upload") }}Upload supplier price list</a></div>
+  <div class="table-wrap">
+    <table class="data" style="min-width:760px">
+      <thead><tr><th>Product</th><th class="num">Price</th><th class="num">BSR</th><th class="num">Sellers / FBA</th><th class="num">Highest cost that could qualify {{ est() }}</th><th>Also missing</th><th></th></tr></thead>
+      <tbody>
+      {% for i in report.needs_cost %}{% set p = i.product %}{% set e = i.evaluation %}
+        <tr><td><div class="cell-product"><a class="product-link" href="{{ url_for('products.detail', pid=p.id) }}">{{ p.display_name }}</a><span class="meta mono">{{ p.asin }}</span></div></td>
+          <td class="num">{{ p.selling_price|money }}</td><td class="num">{{ p.bsr|whole }}</td><td class="num">{{ p.total_sellers|whole }} / {{ p.fba_sellers|whole }}</td>
+          <td class="num">{{ e.profit.max_sourcing_price|money }}</td>
+          <td class="small">{{ e.missing|rejectattr("field", "equalto", "sourcing_price")|map(attribute="label")|join(", ") or "—" }}</td>
+          <td><a class="btn sm" href="{{ url_for('products.edit', pid=p.id) }}#f-sourcing_price">Add cost</a></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<div class="grid-2 mt">
+  <section class="card" aria-labelledby="rej-h">
+    <div class="card-head"><div><h2 id="rej-h">{{ icon("x-circle") }}Rejected ({{ report.rejected|length }})</h2>
+      <p class="sub">Saved — skipped automatically next time this brand is analyzed.</p></div></div>
+    {% if report.rejected %}
+    <ul class="checklist">
+      {% for i in report.rejected %}
+      <li><span class="mark fail" aria-hidden="true">✕</span><span class="txt"><a class="product-link" href="{{ url_for('products.detail', pid=i.product.id) }}">{{ i.product.display_name }}</a>
+        {% for r in i.evaluation.summary %}<span class="rule">{{ r }}</span>{% endfor %}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="muted">None.</p>{% endif %}
+  </section>
+
+  <section class="card" aria-labelledby="inc-h">
+    <div class="card-head"><div><h2 id="inc-h">{{ icon("help") }}Missing data ({{ report.other_missing|length }})</h2>
+      <p class="sub">Amazon didn't show everything needed. These are not rejected.</p></div></div>
+    {% if report.other_missing or report.review %}
+    <ul class="checklist">
+      {% for i in report.review %}
+      <li><span class="txt"><a class="product-link" href="{{ url_for('products.detail', pid=i.product.id) }}">{{ i.product.display_name }}</a>
+        <span class="rule">{{ i.evaluation.summary[:2]|join(" · ") }}</span></span>{{ status_badge(i.evaluation.status) }}</li>
+      {% endfor %}
+      {% for i in report.other_missing %}
+      <li><span class="txt"><a class="product-link" href="{{ url_for('products.detail', pid=i.product.id) }}">{{ i.product.display_name }}</a>
+        <span class="rule">Missing: {{ i.evaluation.missing|map(attribute="label")|join(", ") }}</span></span>{{ status_badge(i.evaluation.status) }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="muted">None.</p>{% endif %}
+  </section>
+</div>
+
+{% if report.skipped or report.failures or report.not_brand %}
+<section class="card mt">
+  {% if report.skipped %}
+  <details class="more"><summary>{{ icon("chevron") }}Previously rejected — skipped ({{ report.skipped|length }})</summary>
+    <ul class="checklist mt-sm">{% for i in report.skipped %}<li><span class="txt"><b>{{ i.title or i.asin }}</b> <span class="mono small">{{ i.asin }}</span>
+      <span class="rule">{{ (i.reasons or [])|join(" · ") }}</span></span></li>{% endfor %}</ul>
+    <p class="small muted">To check these again, use “Re-evaluate previously rejected products” under More options on the dashboard.</p>
+  </details>
+  {% endif %}
+  {% if report.failures %}
+  <details class="more mt-sm"><summary>{{ icon("chevron") }}Could not be collected ({{ report.failures|length }})</summary>
+    <ul class="checklist mt-sm">{% for i in report.failures %}<li><span class="txt"><b>{{ i.title or i.asin }}</b> <span class="mono small">{{ i.asin }}</span>
+      <span class="rule">{{ i.error }}</span></span></li>{% endfor %}</ul></details>
+  {% endif %}
+  {% if report.not_brand %}
+  <details class="more mt-sm"><summary>{{ icon("chevron") }}Not this brand ({{ report.not_brand|length }})</summary>
+    <ul class="checklist mt-sm">{% for i in report.not_brand %}<li><span class="txt">{{ i.title or i.asin }} <span class="mono small">{{ i.asin }}</span>
+      <span class="rule">{{ (i.reasons or [])|join(" ") }}</span></span></li>{% endfor %}</ul></details>
+  {% endif %}
+</section>
+{% endif %}
+
+<p class="fineprint">{{ icon("info") }}<span>Monthly sales come only from Amazon's “bought in past month” badge (a lower bound). Restriction status is never known from Amazon pages — check Seller Central. {{ C.FEE_DISCLAIMER }}</span></p>
+{% endblock %}

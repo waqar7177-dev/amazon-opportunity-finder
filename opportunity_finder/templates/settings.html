@@ -37,8 +37,10 @@
           <p class="help" id="h-{{ spec.name }}">{{ spec.help }}</p>
         </div>
         {% else %}
-        {{ field(spec.name, spec.label, values, errors, {}, {}, inputmode="decimal" if spec.kind != "int" else "numeric",
-                 prefix="£" if spec.kind == "money" else None, suffix="%" if spec.kind == "pct" else None, help=spec.help) }}
+        {{ field(spec.name, spec.label, values, errors, {}, {},
+                 inputmode={"int": "numeric", "text": "text"}.get(spec.kind, "decimal"),
+                 prefix="£" if spec.kind == "money" else None,
+                 suffix="%" if spec.kind == "pct" else spec.get("unit"), maxlength=spec.get("maxlength"), help=spec.help) }}
         {% endif %}
       {% endfor %}
     </div>

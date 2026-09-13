@@ -24,6 +24,7 @@
     <nav class="nav" aria-label="Main">
       {% set links = [
         ("dashboard", url_for("dashboard.index"), "Dashboard", "dashboard"),
+        ("brands", url_for("research.brands"), "Brands", "search"),
         ("add", url_for("products.new_product"), "Add Product", "plus"),
         ("products", url_for("products.list_products"), "Products", "box"),
         ("opportunities", url_for("opportunities.index"), "Opportunities", "target"),

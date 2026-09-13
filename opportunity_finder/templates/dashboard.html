@@ -1,177 +1,72 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icon, status_badge, risk_badge, est, score_pill, money_cell, empty %}
-{% block title %}Dashboard{% endblock %}
+{% from "_macros.html" import icon, risk_badge, est, money_cell %}
+{% block title %}Find Winning Products{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <p class="eyebrow">Amazon UK · wholesale, online arbitrage &amp; FBA</p>
-    <h1>Dashboard</h1>
-    <p class="lead">How your researched products stack up against your {{ stats.target|money }} monthly profit target.</p>
-  </div>
-  <div class="row">
-    {% if stats.total %}<a class="btn ghost" href="{{ url_for('exports.excel') }}" data-loading>{{ icon("download") }}Export Excel</a>{% endif %}
-    <a class="btn" href="{{ url_for('products.new_product') }}">{{ icon("plus") }}Add product</a>
-  </div>
-</div>
-
-{% if not stats.total %}
-<section class="card">
-  {{ empty("box", "No products yet", "Add a product to see its estimated Amazon fees, profit, ROI, risk and whether it qualifies.",
-           url_for('products.new_product'), "Add your first product", url_for('imports.start'), "Bulk import a spreadsheet") }}
-  <ol class="steps">
-    <li><span class="step-n">1</span><div><b>Paste the Amazon page</b><p>Copy the Amazon UK product page text. The app suggests the ASIN, price, BSR and more — you check every value before saving.</p></div></li>
-    <li><span class="step-n">2</span><div><b>Add your costs</b><p>Enter your supplier price plus shipping and prep. Missing values are never guessed.</p></div></li>
-    <li><span class="step-n">3</span><div><b>See if it qualifies</b><p>Estimated fees, profit, ROI, risk and a transparent score — then export everything to Excel.</p></div></li>
-  </ol>
+<section class="card finder" aria-labelledby="finder-h">
+  <h1 id="finder-h">Find Winning Products</h1>
+  <p class="lead">Enter a brand. The tool searches Amazon UK, checks every listing against your rules and ranks the winners.</p>
+  <form method="post" action="{{ url_for('research.start') }}" class="brand-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="brand" class="sr-only">Brand name</label>
+    <input id="brand" name="brand" type="text" maxlength="80" placeholder="Enter brand name, e.g. Aero" autocomplete="off" required autofocus>
+    <button class="btn lg" type="submit" data-loading>{{ icon("search") }}Analyze Brand</button>
+  </form>
+  <details class="more">
+    <summary>{{ icon("chevron") }}More options</summary>
+    <form method="post" action="{{ url_for('research.start') }}" class="form-grid mt-sm" id="more-options">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field"><label for="brand2">Brand name</label><input id="brand2" name="brand" type="text" maxlength="80" placeholder="e.g. Aero"></div>
+      <div class="field span-2"><label for="store_url">Amazon UK brand store link (optional)</label>
+        <input id="store_url" name="store_url" type="text" inputmode="url" placeholder="https://www.amazon.co.uk/stores/…"></div>
+      <label class="check wide"><input type="checkbox" name="reevaluate_rejected" value="1">
+        <span>Re-evaluate previously rejected products <small class="help" style="display:block;margin:0">Off by default — normally they are skipped to save time.</small></span></label>
+      <div class="wide"><button class="btn" type="submit">Analyze Brand</button></div>
+    </form>
+  </details>
 </section>
-{% else %}
 
-<section class="kpis" aria-label="Summary">
-  <a class="kpi" href="{{ url_for('products.list_products') }}">
-    <span class="label">{{ icon("box") }}Products analysed</span>
-    <span class="value">{{ stats.total|whole }}</span>
-    <span class="sub">{{ stats.needs_verification }} to verify · {{ stats.incomplete }} incomplete</span>
-  </a>
-  <a class="kpi" href="{{ url_for('products.list_products', status='qualified') }}">
-    <span class="label"><span class="dot ok" aria-hidden="true">✓</span>Qualified</span>
-    <span class="value">{{ stats.qualified|whole }}</span>
-    <span class="sub">pass every rule, risk not high</span>
-  </a>
-  <a class="kpi" href="{{ url_for('opportunities.rejected') }}">
-    <span class="label"><span class="dot bad" aria-hidden="true">✕</span>Rejected</span>
-    <span class="value">{{ stats.rejected|whole }}</span>
-    <span class="sub">fail at least one rule</span>
-  </a>
-  <a class="kpi" href="{{ url_for('products.list_products', risk='HIGH') }}">
-    <span class="label"><span class="dot bad" aria-hidden="true">▲</span>High-risk products</span>
-    <span class="value">{{ stats.high_risk|whole }}</span>
-    <span class="sub">risk engine scored HIGH</span>
-  </a>
-  <div class="kpi">
-    <span class="label">Average ROI {{ est() }}</span>
-    <span class="value">{{ stats.avg_roi|pct }}</span>
-    <span class="sub">across qualified products</span>
-  </div>
-  <div class="kpi">
-    <span class="label">Avg profit / unit {{ est() }}</span>
-    <span class="value">{{ stats.avg_profit|money }}</span>
-    <span class="sub">across qualified products</span>
-  </div>
-</section>
+{% if active %}
+<a class="notice mt progress-link" href="{{ url_for('research.search', search_id=active.id) }}">
+  <span class="spin-dot" aria-hidden="true"></span>
+  <div><h4>Analyzing “{{ active.query }}”</h4><p>{{ active.message }} — open to watch progress.</p></div>
+</a>
+{% endif %}
 
 <div class="grid-2 mt">
-  <section class="card" aria-labelledby="target-h">
-    <div class="card-head">
-      <div><h2 id="target-h">{{ icon("target") }}Monthly profit target</h2>
-        <p class="sub">Conservative estimate across all qualified products.</p></div>
-      <a class="btn ghost sm" href="{{ url_for('settings.index') }}#group-target">Change target</a>
-    </div>
-    {% set done = stats.progress_pct >= 100 %}
-    <div class="target-figures">
-      <div><span class="label">Conservative {{ est() }}</span><span class="big">{{ stats.conservative|money }}</span></div>
-      <div><span class="label">Target</span><span class="big">{{ stats.target|money }}</span></div>
-      <div><span class="label">{{ "Target reached" if done else "Still needed" }}</span>
-        <span class="big">{% if done %}<span class="yes">{{ icon("check") }}Yes</span>{% else %}{{ stats.remaining|money }}{% endif %}</span></div>
-    </div>
-    <div class="meter {{ 'done' if done }} {{ 'empty' if stats.progress_pct == 0 }}" role="progressbar" aria-label="Conservative profit toward target"
-         aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ stats.progress_pct }}" aria-valuetext="{{ stats.progress_pct|pct }} of target">
-      <div class="meter-track"><div class="meter-fill" style="width: {{ stats.progress_pct }}%"></div></div>
-      <div class="meter-legend"><span><b>{{ stats.progress_pct|pct }}</b> of target</span><span>Theoretical {{ est() }} {{ stats.theoretical|money }}</span></div>
-    </div>
-    <p class="fineprint">{{ icon("info") }}<span>Estimated, not guaranteed income. <b>Conservative</b> assumes you win only your capture rate (default 20%, lower with more FBA sellers) of each listing's estimated sales. <b>Theoretical</b> assumes you win every sale — it is not realistic.</span></p>
-  </section>
-
-  <section class="card" aria-labelledby="status-h">
-    <div class="card-head">
-      <div><h2 id="status-h">Status breakdown</h2><p class="sub">Every active product by evaluation result.</p></div>
-      <a class="btn ghost sm" href="{{ url_for('products.list_products') }}">All products</a>
-    </div>
-    <ul class="dist">
-      {% for s in C.STATUSES %}{% set n = by_status[s]|length %}
-      <li>
-        <a href="{{ url_for('products.list_products', status=s) }}" aria-label="{{ C.STATUS_LABELS[s] }}: {{ n }} products">{{ status_badge(s) }}</a>
-        <span class="dist-bar" aria-hidden="true"><i style="width: {{ (n / stats.total * 100)|round(1) }}%"></i></span>
-        <span class="dist-n">{{ n }}</span>
-      </li>
+  <section class="card" aria-labelledby="recent-h">
+    <div class="card-head"><h2 id="recent-h">Recent brand searches</h2>
+      {% if recent %}<a class="btn ghost sm" href="{{ url_for('research.brands') }}">All brands</a>{% endif %}</div>
+    {% if recent %}
+    <ul class="checklist">
+      {% for s in recent %}
+      <li><span class="txt"><a class="product-link" href="{{ url_for('research.search', search_id=s.id) }}">{{ s.brand_name }}</a>
+        <span class="rule">{{ s.created_at|ago }} · {{ s.discovered }} found · {{ s.winners }} winning · {{ s.rejected }} rejected</span></span>
+        <span class="badge {{ status_tone[s.status] }}">{{ status_labels[s.status] }}</span></li>
       {% endfor %}
     </ul>
-  </section>
-</div>
-
-<section class="card mt" aria-labelledby="top-h">
-  <div class="card-head">
-    <div><h2 id="top-h">{{ icon("trend") }}Top opportunities</h2><p class="sub">Qualified products ranked by Opportunity Score (ROI, profit, monthly profit, sales, competition and risk).</p></div>
-    <a class="btn ghost sm" href="{{ url_for('opportunities.index') }}">Ranking &amp; target plan {{ icon("chevron") }}</a>
-  </div>
-  {% if top %}
-  <div class="table-wrap">
-    <table class="data">
-      <caption class="sr-only">Top five qualified products</caption>
-      <thead><tr>
-        <th scope="col" class="num">#</th><th scope="col">Product</th><th scope="col" class="num">Score</th>
-        <th scope="col" class="num">ROI {{ est() }}</th><th scope="col" class="num">Profit / unit {{ est() }}</th>
-        <th scope="col" class="num">Conservative / mo {{ est() }}</th><th scope="col">Risk</th>
-        <th scope="col" class="num">BSR</th><th scope="col" class="num">FBA sellers</th>
-      </tr></thead>
-      <tbody>
-      {% for i in top %}{% set p = i.product %}{% set e = i.evaluation %}
-        <tr>
-          <td class="num">{{ i.rank }}</td>
-          <td><div class="cell-product"><a class="product-link" href="{{ url_for('products.detail', pid=p.id) }}">{{ p.display_name }}</a>
-            <span class="meta"><span class="mono">{{ p.asin or "No ASIN" }}</span>{% if p.brand %} · {{ p.brand }}{% endif %}</span></div></td>
-          <td class="num">{{ score_pill(e.score.total if e.score else none) }}</td>
-          <td class="num">{{ e.profit.roi_pct|pct }}</td>
-          <td class="num">{{ money_cell(e.profit.net_profit) }}</td>
-          <td class="num"><b>{{ money_cell(e.profit.conservative_monthly_profit) }}</b></td>
-          <td>{{ risk_badge(e.risk.level) }}</td>
-          <td class="num">{{ p.bsr|whole }}</td>
-          <td class="num">{{ p.fba_sellers|whole }}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  {{ empty("target", "No qualified products yet", "Products appear here once they pass every qualification rule and are not high risk. See what failed or what data is missing.",
-           url_for('opportunities.rejected'), "See rejected & incomplete") }}
-  {% endif %}
-</section>
-
-<div class="grid-2 mt">
-  <section class="card" aria-labelledby="plan-h">
-    <div class="card-head">
-      <div><h2 id="plan-h">{{ icon("target") }}Target plan</h2><p class="sub">Best-ranked products whose conservative profit could reach {{ plan.target|money }}.</p></div>
-      {% if plan.selected %}<span class="badge {{ 'ok' if plan.achieved else 'warn' }} lg"><span class="sym" aria-hidden="true">{{ '✓' if plan.achieved else '!' }}</span>{{ "Target achievable" if plan.achieved else "Short of target" }}</span>{% endif %}
-    </div>
-    {% if plan.selected %}
-    <ol class="plan">
-      {% for s in plan.selected[:5] %}
-      <li><span class="n">{{ loop.index }}</span>
-        <span class="name"><a href="{{ url_for('products.detail', pid=s.product_id) }}">{{ s.name }}</a><small>{{ s.conservative_units|whole }} units / month {{ est() }}</small></span>
-        <span class="amt">{{ s.conservative_monthly_profit|money }}</span>
-        <span class="run">total {{ s.running_total|money }}</span></li>
-      {% endfor %}
-    </ol>
-    {% if plan.selected|length > 5 %}<p class="small muted mt-sm">+ {{ plan.selected|length - 5 }} more in the full plan.</p>{% endif %}
-    <div class="plan-total"><span>Projected conservative total {{ est() }}</span><b>{{ plan.total|money }}</b></div>
-    <p class="fineprint">{{ icon("info") }}<span>Estimated, not guaranteed. Needs about {{ plan.stock_investment|money }} of stock per month {{ est() }}.</span></p>
     {% else %}
-    <p class="muted">No qualified products with a positive conservative profit yet.</p>
+    <p class="muted">No brands analyzed yet. Type a brand above to start.</p>
     {% endif %}
   </section>
 
-  <section class="card" aria-labelledby="recent-h">
-    <div class="card-head">
-      <div><h2 id="recent-h">{{ icon("clock") }}Recently updated</h2><p class="sub">The products you touched last.</p></div>
-    </div>
+  <section class="card" aria-labelledby="win-h">
+    <div class="card-head"><h2 id="win-h">Winning products</h2>
+      {% if winners %}<a class="btn ghost sm" href="{{ url_for('opportunities.index') }}">All winners</a>{% endif %}</div>
+    {% if winners %}
     <ul class="checklist">
-      {% for i in recent %}{% set p = i.product %}
-      <li><span class="txt"><a class="product-link" href="{{ url_for('products.detail', pid=p.id) }}">{{ p.display_name }}</a>
-        <span class="rule">Updated {{ p.updated_at|ago }} · Amazon data checked {{ p.amazon_checked_at|ago }}</span></span>
-        {{ status_badge(i.evaluation.status) }}</li>
+      {% for i in winners %}{% set p = i.product %}{% set e = i.evaluation %}
+      <li><span class="txt"><a class="product-link" href="{{ url_for('products.detail', pid=p.id) }}">{{ i.rank }}. {{ p.display_name }}</a>
+        <span class="rule">ROI {{ e.profit.roi_pct|pct }} · {{ e.profit.conservative_monthly_profit|money }}/month {{ est() }}</span></span>
+        {{ risk_badge(e.risk.level) }}</li>
       {% endfor %}
     </ul>
+    {% else %}
+    <p class="muted">Winning products appear here once a product passes every rule.</p>
+    {% endif %}
   </section>
 </div>
+
+{% if stats.products %}
+<p class="small muted mt center-text">{{ stats.brands }} brand{{ '' if stats.brands == 1 else 's' }} · {{ stats.products }} products analyzed · {{ stats.winners }} winning · {{ stats.rejected }} rejected</p>
 {% endif %}
 {% endblock %}
