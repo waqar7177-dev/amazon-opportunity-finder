@@ -62,6 +62,19 @@ def title_mentions_brand(title: str, brand: str, *, at_start: bool = False) -> b
     return False
 
 
+def brand_relevance(listed_brand: str | None, brand_source: str | None, title: str, brand: str) -> tuple[str, str | None]:
+    """Decide whether a listing belongs to the searched brand, from its own brand field.
+
+    Returns (relevance, reason_if_not_brand). A listing whose brand field names a different brand is not the
+    brand, even when its title contains the word — "UniBond AERO 360" is UniBond, not Aero (FAILURES F16).
+    A brand field that contains the searched brand as a whole word ("Nestlé Aero") counts as the brand."""
+    if listed_brand and title_mentions_brand(listed_brand, brand):
+        return "brand_verified", None
+    if listed_brand and brand_source in ("byline", "store", "details"):
+        return "brand_mismatch", f"Listed under the brand “{listed_brand}”, not “{brand}”."
+    return "title_match", None
+
+
 class StopRequested(Exception):
     pass
 
@@ -185,7 +198,13 @@ class BrandResearch:
                 continue
 
             if known is not None and not search["reevaluate_rejected"] and self._fresh(known, settings.research_refresh_hours):
-                self._decide(sid, search, self.service.get(known.id), item)
+                collected_brand = "brand" in (known.field_meta or {})  # brand came from an Amazon page, not typed by hand
+                relevance, reason = brand_relevance(known.brand, "details" if collected_brand else None, known.title or "", search["query"])
+                if reason:
+                    self.repo.upsert_item(sid, asin, stage="skipped_not_brand", outcome=NOT_BRAND, relevance=relevance, reasons=[reason])
+                else:
+                    self.repo.upsert_item(sid, asin, relevance=relevance)
+                    self._decide(sid, search, self.service.get(known.id), item)
                 done += 1
                 continue
 
@@ -223,17 +242,12 @@ class BrandResearch:
             raise FetchFailed("The product page could not be read (unexpected layout).")
 
         # Brand relevance, now that the listing's own brand field is known.
-        relevance = "title_match"
-        if parsed.brand and brand_key(parsed.brand) == brand_key(brand):
-            relevance = "brand_verified"
-        elif parsed.brand and parsed.brand_source in ("byline", "store", "details"):
-            if not title_mentions_brand(parsed.title, brand, at_start=True):
-                reason = f"Listed under the brand “{parsed.brand}”, not “{brand}”."
-                self.repo.upsert_item(sid, asin, stage="skipped_not_brand", outcome=NOT_BRAND, relevance="brand_mismatch",
-                                      reasons=[reason], title=parsed.title)
-                log.info("Brand search %s: %s is brand %r — not analyzed", sid, asin, parsed.brand)
-                return None
-            relevance = "sub_brand"
+        relevance, reason = brand_relevance(parsed.brand, parsed.brand_source, parsed.title, brand)
+        if reason:
+            self.repo.upsert_item(sid, asin, stage="skipped_not_brand", outcome=NOT_BRAND, relevance=relevance,
+                                  reasons=[reason], title=parsed.title)
+            log.info("Brand search %s: %s is brand %r — not analyzed", sid, asin, parsed.brand)
+            return None
         self.repo.upsert_item(sid, asin, relevance=relevance, title=parsed.title)
 
         offers = None

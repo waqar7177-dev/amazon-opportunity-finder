@@ -22,6 +22,8 @@ Ask these before committing. Each line came from a real fault below.
 12. When a scripted find-and-replace edits a template, does the pattern occur exactly once? *(F12)*
 13. Can two workers (a thread and a direct call, or two threads) pick up the same job? Claim jobs atomically. *(F13)*
 14. When a user-typed name maps to a stored record, does every later use read the stored value, not the typed one? *(F14)*
+15. In a template, does a filter written after `a or b` apply to the whole expression? Parenthesise: `(a or b)|filter`. *(F15)*
+16. Is a relevance or matching rule checked against real data, including look-alikes (another brand's product line with the same word)? *(F16)*
 
 ---
 
@@ -210,3 +212,28 @@ Ask these before committing. Each line came from a real fault below.
 - **Why nothing caught it:** every earlier test typed the brand with identical capitalisation.
 - **Fix:** `ResearchRunner.start` uses the stored brand name as the search query.
 - **Checklist line:** 14.
+
+## F15 — Brand report showed the start time as a raw timestamp
+
+- **What broke:** the report header printed "Started 2026-09-13T19:08:48". In `{{ search.started_at or search.created_at|datetime }}`
+  the filter binds to `search.created_at` only, so whenever `started_at` was set the raw ISO string was shown.
+- **Measurement:** 2026-09-13 19:14, screenshot `live-progress.png` of the real Aero search on the test server.
+- **Why nothing caught it:** route tests check report content, not date formatting; the first real screenshot showed it.
+- **Fix:** `(search.started_at or search.created_at)|datetime`; a grep of all templates found no other `or …|filter` expression.
+- **Checklist line:** 15.
+
+## F16 — Another brand's product line was analyzed as the searched brand
+
+- **What broke:** the real Aero search (1 page, 47 title matches) listed "UniBond AERO 360° Moisture Absorber Neutral
+  Refill" under *Sourcing cost required* as an Aero product. Its listing brand is UniBond; "AERO 360" is its product line.
+  The relevance rule accepted a different listed brand whenever the search word was among the title's first three words —
+  meant for sub-brands such as "Nestlé Aero", but it cannot tell those from look-alikes.
+- **Measurement:** 2026-09-13 19:14, search 1 on the test server at 27/47 products: the report showed the UniBond listing
+  with price and BSR in the Aero results; the same run correctly set aside "Nestlé Big Chocolate Box 30 Bars" (brand Nestlé)
+  because "Aero" was not in its first three words.
+- **Why nothing caught it:** the fixture's look-alike ("Replacement Lids compatible with Brightnest") had the brand word late in
+  the title, so the first-three-words exception was never exercised by a false positive.
+- **Fix:** a listing whose own brand field names a different brand is *Not this brand*, unless the brand field itself contains the
+  searched brand as a whole word ("Nestlé Aero"). The same check now runs when a stored product is reused on a later search.
+  New test: `test_product_line_of_another_brand_is_not_the_brand`.
+- **Checklist line:** 16.

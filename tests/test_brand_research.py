@@ -76,6 +76,36 @@ def test_full_brand_search(db):
     conn.close()
 
 
+def test_product_line_of_another_brand_is_not_the_brand(db):
+    from amazon_fixtures import offers_page, search_page
+    site = brightnest_site()
+    site[M.search_url("Brightnest", 2)] = search_page([
+        {"asin": "B0SUBLINE1", "title": "Glowco BRIGHTNEST 360 Moisture Absorber Refill", "price": 4.99},
+        {"asin": "B0BRANDFLD", "title": "Brightnest Home Stand Mixer", "price": 89.00},
+    ])
+    site[M.product_url("B0SUBLINE1")] = product_page("B0SUBLINE1", "Glowco BRIGHTNEST 360 Moisture Absorber Refill",
+                                                    brand_line="Visit the Glowco Store", price=4.99)
+    site[M.product_url("B0BRANDFLD")] = product_page("B0BRANDFLD", "Brightnest Home Stand Mixer", brand_line="Brand: Nordic Brightnest",
+                                                    price=89.00)
+    site[M.offers_url("B0BRANDFLD")] = offers_page(("A", "Amazon"), [("B", "Amazon"), ("C", "C")])
+    source = FakeSource(site)
+    sid, _, items, conn = run(db, source)
+    assert items["B0SUBLINE1"]["outcome"] == NOT_BRAND and "Glowco" in items["B0SUBLINE1"]["reasons"][0]
+    assert M.offers_url("B0SUBLINE1") not in source.fetched("offers")
+    assert items["B0BRANDFLD"]["relevance"] == "brand_verified" and items["B0BRANDFLD"]["outcome"] != NOT_BRAND
+    conn.close()
+
+    # A product stored earlier under another brand is not re-counted when reused on the next search.
+    conn = connect(db)
+    conn.execute("UPDATE products SET brand = 'Glowco', field_meta = json_set(COALESCE(field_meta, '{}'), '$.brand', json('{}')) "
+                 "WHERE asin = 'B0BRIGHT01'")
+    conn.commit()
+    conn.close()
+    _, _, items2, conn = run(db, FakeSource(site))
+    assert items2["B0BRIGHT01"]["outcome"] == NOT_BRAND
+    conn.close()
+
+
 def test_missing_data_is_not_fabricated(db):
     source = FakeSource({**brightnest_site(), M.offers_url("B0BRIGHT03"): FetchFailed("offers timed out")})
     _, _, _, conn = run(db, source)

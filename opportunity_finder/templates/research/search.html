@@ -9,7 +9,7 @@
   <div>
     <p class="eyebrow">Brand report · Amazon UK</p>
     <h1>{{ search.query }}</h1>
-    <p class="lead">Started {{ search.started_at or search.created_at|datetime }} · {{ search.pages_processed }} result page{{ '' if search.pages_processed == 1 else 's' }} scanned
+    <p class="lead">Started {{ (search.started_at or search.created_at)|datetime }} · {{ search.pages_processed }} result page{{ '' if search.pages_processed == 1 else 's' }} scanned
       {% if search.reevaluate_rejected %}· previously rejected products re-checked{% endif %}</p>
   </div>
   {% if not running %}
