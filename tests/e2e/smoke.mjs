@@ -44,9 +44,11 @@ try {
   await page.goto(`${BASE}/`);
   check("dashboard loads", await page.locator("h1", { hasText: "Find Winning Products" }).isVisible());
   check("dashboard has the brand input", await page.locator("#brand").isVisible() && await page.locator("button:has-text('Analyze Brand')").first().isVisible());
+  check("brand box has the cursor on load", await page.evaluate(() => document.activeElement && document.activeElement.id === "brand"));
+  await shot("01-dashboard-empty");
+  await page.goto(`${BASE}/products`);
   await page.keyboard.press("Tab");
   check("first Tab reaches the skip link", await page.evaluate(() => document.activeElement.classList.contains("skip")));
-  await shot("01-dashboard-empty");
 
   // ------------------------------------------------------------ smart paste
   const fixture = fs.readFileSync(path.join(here, "..", "fixtures", "amazon_product_page.txt"), "utf8");

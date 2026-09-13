@@ -1,5 +1,6 @@
-# Runtime dependencies. All pure Python on purpose, so they install on locked-down
-# Windows machines (Smart App Control / application-control policies) without compiling.
+# Runtime dependencies. Chosen to install on locked-down Windows machines (Smart App Control /
+# application-control policies) without compiling anything. Playwright ships a signed driver and uses
+# the browser that is already installed; it was verified to run under Smart App Control.
 Flask>=3.0,<4
 openpyxl>=3.1,<4
 waitress>=3.0,<4

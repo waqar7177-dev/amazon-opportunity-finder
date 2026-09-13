@@ -67,6 +67,6 @@
 </div>
 
 {% if stats.products %}
-<p class="small muted mt center-text">{{ stats.brands }} brand{{ '' if stats.brands == 1 else 's' }} · {{ stats.products }} products analyzed · {{ stats.winners }} winning · {{ stats.rejected }} rejected</p>
+<p class="small muted mt center-text">{% if stats.brands %}{{ stats.brands }} brand{{ '' if stats.brands == 1 else 's' }} · {% endif %}{{ stats.products }} products analyzed · {{ stats.winners }} winning · {{ stats.rejected }} rejected</p>
 {% endif %}
 {% endblock %}

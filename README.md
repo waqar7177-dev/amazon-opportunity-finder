@@ -1,12 +1,15 @@
 # Amazon UK Opportunity Finder
 
-A local web app that helps you decide whether an Amazon UK product is worth buying for **wholesale,
-online arbitrage or FBA**. Paste the Amazon page (or type or import the details), add your sourcing cost,
-and it estimates Amazon fees, profit, ROI and monthly profit, applies your qualification rules, scores the
-risk, ranks the good opportunities, plans which products could reach your monthly profit target, and exports
-everything to a formatted Excel workbook.
+A local web app that finds Amazon UK products worth buying for **wholesale, online arbitrage or FBA**.
 
-It runs entirely on your own computer at **http://127.0.0.1:8877**. No login, no cloud, no paid API.
+**Type a brand name** and it searches Amazon UK, keeps the listings that really belong to that brand, collects
+each product's price, Best Sellers Rank, sellers, FBA sellers, size and weight, runs the profit, ROI, rules
+and risk checks, rejects the failures with exact reasons, and ranks the **Winning Products**. Products it
+rejected once are skipped next time. You can still add products by hand, with Smart Paste or by importing a
+spreadsheet.
+
+It runs on your own computer at **http://127.0.0.1:8877**. No login, no cloud, no paid API. Internet is used
+only while a brand analysis reads Amazon UK pages.
 
 ---
 
@@ -14,6 +17,7 @@ It runs entirely on your own computer at **http://127.0.0.1:8877**. No login, no
 
 - [What it does — and what it does not do](#what-it-does--and-what-it-does-not-do)
 - [Quick start](#quick-start)
+- [Brand research — Find Winning Products](#brand-research--find-winning-products)
 - [Adding products](#adding-products)
 - [How Smart Paste works](#how-smart-paste-works)
 - [Qualification rules and statuses](#qualification-rules-and-statuses)
@@ -40,6 +44,8 @@ It runs entirely on your own computer at **http://127.0.0.1:8877**. No login, no
 
 **It does**
 
+- Analyze a whole brand from its name: search Amazon UK, verify brand relevance, collect product data, evaluate,
+  accept or reject, rank winners, remember rejections, and export a brand report.
 - Extract likely product facts from Amazon UK page text you paste, and let you verify each one before saving.
 - Accept manual entry and bulk import from CSV, Excel (.xlsx) or rows pasted from a spreadsheet.
 - Estimate the referral fee, FBA fulfilment fee, surcharges and (optionally) VAT from a UK fee table.
@@ -51,10 +57,14 @@ It runs entirely on your own computer at **http://127.0.0.1:8877**. No login, no
 
 **It does not**
 
-- **Scrape Amazon.** It never loads Amazon pages, never works around CAPTCHAs or bot protection. It only reads text *you* paste.
+- **Get around Amazon's protections.** Brand research reads public Amazon UK pages with your own browser, one page
+  every few seconds, only when you start it. If Amazon shows a CAPTCHA or bot check, the analysis stops and keeps what
+  it has — it never solves or bypasses one. Manual entry, Smart Paste and import never contact Amazon.
 - **Guess missing data.** A missing price, BSR, sales estimate or seller count is reported as missing. The product is marked *Incomplete Data*, never silently filled in.
 - **Tell you an ASIN is ungated.** Restriction status is whatever you record after checking Seller Central. *Unknown* is always treated as a risk.
 - **Guarantee fees or income.** Fees, sales, capture rates and monthly profits are estimates. Confirm exact fees in the Seller Central Revenue Calculator before buying stock.
+- **Invent sales or costs.** Amazon does not publish monthly sales, and a brand name never reveals your trade price.
+  Sales come only from Amazon's "bought in past month" badge (a lower bound); costs only from your supplier price list.
 - **Need Keepa or any paid service.** Keepa support is prepared as an optional, disabled plug-in.
 
 ---
@@ -94,6 +104,88 @@ python app.py              # add --no-browser to skip opening a tab, --port 8878
 ```
 
 Optional configuration lives in `.env` — copy `.env.example` to `.env` and edit it. Every value is optional.
+
+---
+
+## Brand research — Find Winning Products
+
+On the dashboard, type a brand (for example `Aero`) and press **Analyze Brand**. The report page shows live
+progress; you can leave it open or come back later.
+
+### What happens
+
+```
+Brand name
+ → Amazon UK search, page by page (up to 5 pages; stops early when results stop naming the brand)
+ → keep titles that name the brand as a whole word ("Aero" matches "AERO Milkybar", not "AeroGarden")
+ → skip ASINs rejected in an earlier analysis ("Previously rejected — skipped")
+ → reuse products checked in the last 24 hours; otherwise open the product page and the offers panel
+ → confirm the brand on the product page ("Brand: …", "Visit the … Store"); other brands are set aside
+ → build the product: price, BSR, category, sellers, FBA sellers, Amazon on listing, size, weight, stock
+ → look up your cost in the supplier price list
+ → existing evaluation: fees, profit, ROI, conservative sales, rules, risk, score
+ → Winning (Qualified) · Rejected (with reasons, saved to the skip list) · Incomplete (what's missing)
+   · Needs Verification · High Risk · Not this brand · Collection failed
+```
+
+The browser is set to show **GBP** and deliver to a **UK postcode** (Settings → Brand research) — Amazon's own
+site preferences — so prices, stock and sellers are the UK ones. Plain HTTP requests get a bot-check page, so
+the app uses Microsoft Edge (or Google Chrome) already installed on your computer. On macOS/Linux install
+Google Chrome, or run `.venv/bin/python -m playwright install chromium` once.
+
+### What is collected automatically — and what is not
+
+| Collected from Amazon UK when the listing shows it | Never guessed — needs you or another source |
+|---|---|
+| ASIN, title, brand, Amazon URL | **Sourcing cost** — your supplier price list, or type it on the product |
+| Buy Box price, availability | **Monthly sales** beyond Amazon's "bought in past month" lower bound |
+| Best Sellers Rank and category | **Restriction / gating** — check Seller Central (always "Unknown") |
+| Total sellers and FBA sellers (offers panel) | Hazmat, battery, fragile, seasonal, IP flags |
+| Amazon selling the listing | Exact account fees (estimates use the UK fee table) |
+| Package dimensions and weight | Price / BSR history before your first analysis |
+
+Every collected value records its **source, time, raw or estimated, and verified or uncertain** (for example
+"lower bound from Amazon's 100+ bought in past month badge", or "Amazon lists different weights; the heaviest
+was used"). The referral-fee category is mapped from Amazon's category and marked ESTIMATED. The full audit is in
+[docs/BRAND_AUTOMATION_GAP_ANALYSIS.md](docs/BRAND_AUTOMATION_GAP_ANALYSIS.md).
+
+### Sourcing costs: the supplier price list
+
+Open **Brands → Supplier price list** and upload a CSV/XLSX with an **ASIN** and/or **EAN** column and a
+**cost** column (supplier and product name optional; a template is provided). Brand research matches by ASIN,
+then EAN. Uploading a new list updates researched products straight away. A cost you type on a product yourself
+always wins. Products without a cost appear under **Sourcing cost required**, together with the **highest cost
+that could still qualify** — useful when asking a supplier for a price.
+
+### Rejected products are not checked again
+
+Every rejection is saved with its reasons, the values that failed, the date and the rules in force. A later
+analysis of the same brand skips those ASINs and lists them as *Previously rejected — skipped*. To reconsider:
+
+- tick **Re-evaluate previously rejected products** under *More options* on the dashboard (off by default), or
+- open **Rejected → Skip list** and press **Allow re-check** for one product.
+
+If you change the qualification rules, the skip list marks rejections made under the old rules as **Rules
+changed**; they are not re-run silently.
+
+### Progress, stopping and resuming
+
+One analysis runs at a time. Everything is saved as it goes. If you stop it, close the app, or Amazon blocks
+collection ("Amazon temporarily blocked automated collection"), the products already analyzed are kept and
+**Resume** continues with the rest — search pages and finished products are not loaded again. Pages are also
+cached for 12 hours.
+
+### Brand history and export
+
+**Brands** lists every brand with its latest results and an **Analyze again** button. Each brand report exports
+to Excel with *Summary, Winning Products, Rejected, Incomplete, Skipped Previously Rejected* and *Collection Errors*
+sheets (plus *Needs Review* when relevant).
+
+### Using it responsibly
+
+Amazon's Conditions of Use restrict automated data collection. The tool is built to be gentle — it runs only when
+you start it, loads one page at a time with a pause of at least 3 seconds (default 6), retries sparingly, caches
+pages and stops at any CAPTCHA — but using it is your decision. Keep the pause and page count modest.
 
 ---
 
@@ -412,7 +504,8 @@ Saving re-evaluates every product immediately. **Reset to defaults** restores th
 - Listens on **127.0.0.1** only, so other devices can't reach it. (Changing `AOF_HOST` prints a warning.)
 - **No login** is needed; instead every form is protected by a CSRF token and requests with a foreign `Host`
   header are refused, so other web pages open in your browser can't operate the app.
-- A strict Content-Security-Policy: no external scripts, fonts or trackers. No data is sent to any external service.
+- A strict Content-Security-Policy: no external scripts, fonts or trackers. Your products, costs, settings and reports
+  never leave the computer. The only outside traffic is a brand analysis loading public Amazon UK pages.
 - `SECRET_KEY` comes from the environment, or is generated once and stored in `data/secret_key`. No secrets are in the code.
 - Backend validation on every input — the browser checks are only a convenience.
 
@@ -435,10 +528,12 @@ amazon-opportunity-finder/
 │   ├── domain/                Product and Settings models (+ settings validation)
 │   ├── fees/                  engine.py + uk_fee_table.json
 │   ├── parsers/amazon_text.py Smart Paste parser
-│   ├── providers/             base.py interface, manual.py, keepa.py (disabled stub)
+│   ├── providers/             base.py interface, manual.py, keepa.py (disabled stub), sourcing.py (price list)
+│   │   └── amazon/            marketplace.py, browser.py (polite Playwright collector), parsers.py, categories.py
 │   ├── services/              calculator, qualification, risk_engine, ranking, target_plan, evaluator,
 │   │                          validation, duplicates, product_service, product_query,
-│   │                          import_service, excel_export, backup
+│   │                          import_service, excel_export, backup,
+│   │                          brand_research (pipeline), research_jobs (background runner), brand_export
 │   ├── database/              db.py (schema + migrations), repositories.py (all SQL)
 │   ├── routes/                dashboard, products, opportunities, imports, settings, exports, api
 │   ├── templates/             Jinja pages
@@ -458,7 +553,9 @@ pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-198 tests cover fee estimation, profit and ROI, capture rates, qualification, missing-data handling, risk, score,
+230 tests cover brand research (search pages, brand relevance, duplicates, skipping rejected ASINs, explicit
+re-evaluation, CAPTCHA/block detection with resume, malformed pages, missing price/BSR/sellers, supplier costs, user
+values never overwritten, history after restart), the Amazon page parsers, fee estimation, profit and ROI, capture rates, qualification, missing-data handling, risk, score,
 ranking, the target plan, the Smart Paste parser, validation, duplicates, settings persistence, history, bulk
 import, Excel/CSV export, backups and every page and workflow through the Flask test client (including CSRF,
 friendly error pages and restart persistence).
@@ -527,6 +624,11 @@ starts empty each time.
 | **Fees look different from Seller Central** | Pick the right referral fee category, add packaged dimensions, or enter the exact fees under “I have the exact fees from Seller Central”. Check `uk_fee_table.json` is current. |
 | **Something went wrong (with a reference code)** | Your data is safe. Search `data/logs/app.log` for the code. |
 | **Start fresh** | Stop the app, move or delete the `data` folder, start again. (Download a backup first.) |
+| **"Amazon temporarily blocked automated collection"** | Wait (an hour or more), then press **Resume**. Increase *Pause between page loads* and reduce *Search result pages* in Settings. Nothing collected is lost. |
+| **"Brand research needs Microsoft Edge or Google Chrome"** | Install Edge or Chrome (or on macOS/Linux run `.venv/bin/python -m playwright install chromium`). |
+| **Researched products have no price** | The listing has no Buy Box, or the UK delivery location wasn't applied — check *UK delivery postcode* in Settings and turn on *Show the browser window* to watch. |
+| **Everything is "Sourcing cost required"** | Upload your supplier price list (Brands → Supplier price list) or type costs on the products. |
+| **A search shows "Interrupted"** | The app was closed while it ran. Open it and press **Resume**. |
 
 ---
 
@@ -541,3 +643,11 @@ starts empty each time.
 - **UK marketplace only**, in GBP.
 - **Single user, local.** There is no multi-user access or login by design.
 - `run.sh` was syntax-checked but not executed on macOS/Linux during development (the build machine is Windows).
+- **Brand research is not fully automatic end to end.** It collects everything Amazon shows publicly, but a product
+  only becomes a Winning Product when it also has a sourcing cost (your price list) and a monthly-sales figure (only
+  Amazon's "bought in past month" badge, shown on some listings). Products without them stay *Incomplete*.
+- **Amazon can block collection at any time** and can change its page layout, which would stop fields being read
+  until the parsers are updated. Offer counts reflect the moment of collection for a UK delivery address.
+- **Restriction/gating and exact fees need your Seller Central account.** The free official route is Amazon's
+  Selling Partner API (Listings Restrictions, Product Fees, Product Pricing) with your developer credentials; Keepa
+  (paid) adds sales estimates and history. Neither is required.
