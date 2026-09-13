@@ -71,8 +71,17 @@ def brand_relevance(listed_brand: str | None, brand_source: str | None, title: s
     if listed_brand and title_mentions_brand(listed_brand, brand):
         return "brand_verified", None
     if listed_brand and brand_source in ("byline", "store", "details"):
+        # Amazon titles lead with the brand. "UniBond AERO 360 …" (brand UniBond) is UniBond's product line; "Aero Peppermint
+        # Bar" listed under the manufacturer "Nestlé Česko s.r.o." is still Aero, but not confirmed (FAILURES F17).
+        if not _title_starts_with(title, listed_brand) and _title_starts_with(title, brand):
+            return "brand_uncertain", None
         return "brand_mismatch", f"Listed under the brand “{listed_brand}”, not “{brand}”."
     return "title_match", None
+
+
+def _title_starts_with(title: str, name: str) -> bool:
+    key, words = brand_key(name), _tokens(title)
+    return bool(key) and any("".join(words[:size]) == key for size in (1, 2, 3, 4) if size <= len(words))
 
 
 class StopRequested(Exception):

@@ -24,6 +24,7 @@ Ask these before committing. Each line came from a real fault below.
 14. When a user-typed name maps to a stored record, does every later use read the stored value, not the typed one? *(F14)*
 15. In a template, does a filter written after `a or b` apply to the whole expression? Parenthesise: `(a or b)|filter`. *(F15)*
 16. Is a relevance or matching rule checked against real data, including look-alikes (another brand's product line with the same word)? *(F16)*
+17. When a fix tightens a rule, have you re-run it on the real cases the old rule got *right*? *(F17)*
 
 ---
 
@@ -237,3 +238,18 @@ Ask these before committing. Each line came from a real fault below.
   searched brand as a whole word ("Nestlé Aero"). The same check now runs when a stored product is reused on a later search.
   New test: `test_product_line_of_another_brand_is_not_the_brand`.
 - **Checklist line:** 16.
+
+## F17 — The F16 fix would have excluded a genuine Aero product
+
+- **What broke:** F16's rule ("a different brand field means not this brand") was checked against the look-alike that
+  prompted it, but not against the real rows the old rule handled correctly. "Aero Peppermint Milk Chocolate Giant
+  Gifting Bar, 295g" is listed under the manufacturer's company name "Nestlé Česko s.r.o." — genuine Aero, which the
+  F16 rule would have dropped as *Not this brand*.
+- **Measurement:** 2026-09-13 19:22, the F16 rule applied to the stored rows of real search 1: `B0FH56Z5XC` (brand
+  "Nestlé Česko s.r.o.", title "Aero Peppermint …") → `brand_mismatch`; `B01LCHCRQO` UniBond AERO 360 → `brand_mismatch`
+  (correct); `B0G4XCBQKX` "Manhattan Aero 4K TV Streamer" (brand Manhattan) → `brand_mismatch` (correct).
+- **Why nothing caught it:** the F16 test only covered look-alikes, not a real brand product listed under its maker.
+- **Fix:** Amazon titles lead with the brand. If the title starts with the listed brand ("UniBond AERO…", "Manhattan Aero…")
+  it is not the brand; if it starts with the searched brand while the listing names another company, it is accepted as
+  *brand uncertain* (flagged on the product's brand field); anything else is not the brand. New tests cover all six real patterns.
+- **Checklist line:** 17.

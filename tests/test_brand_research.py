@@ -82,7 +82,12 @@ def test_product_line_of_another_brand_is_not_the_brand(db):
     site[M.search_url("Brightnest", 2)] = search_page([
         {"asin": "B0SUBLINE1", "title": "Glowco BRIGHTNEST 360 Moisture Absorber Refill", "price": 4.99},
         {"asin": "B0BRANDFLD", "title": "Brightnest Home Stand Mixer", "price": 89.00},
+        {"asin": "B0MAKERBR1", "title": "Brightnest Giant Gift Box 295g", "price": 4.50},
     ])
+    # A genuine Brightnest product listed under the manufacturer's company name.
+    site[M.product_url("B0MAKERBR1")] = product_page("B0MAKERBR1", "Brightnest Giant Gift Box 295g", brand_line="Brand: Brightco Holdings s.r.o.",
+                                                    price=4.50)
+    site[M.offers_url("B0MAKERBR1")] = offers_page(("A", "Amazon"), [("B", "B"), ("C", "C")])
     site[M.product_url("B0SUBLINE1")] = product_page("B0SUBLINE1", "Glowco BRIGHTNEST 360 Moisture Absorber Refill",
                                                     brand_line="Visit the Glowco Store", price=4.99)
     site[M.product_url("B0BRANDFLD")] = product_page("B0BRANDFLD", "Brightnest Home Stand Mixer", brand_line="Brand: Nordic Brightnest",
@@ -93,17 +98,32 @@ def test_product_line_of_another_brand_is_not_the_brand(db):
     assert items["B0SUBLINE1"]["outcome"] == NOT_BRAND and "Glowco" in items["B0SUBLINE1"]["reasons"][0]
     assert M.offers_url("B0SUBLINE1") not in source.fetched("offers")
     assert items["B0BRANDFLD"]["relevance"] == "brand_verified" and items["B0BRANDFLD"]["outcome"] != NOT_BRAND
+    assert items["B0MAKERBR1"]["relevance"] == "brand_uncertain" and items["B0MAKERBR1"]["outcome"] != NOT_BRAND
+    maker = ProductRepository(conn).find_by_asin("B0MAKERBR1")[0]
+    assert maker.field_meta["brand"]["certainty"] == "uncertain"
     conn.close()
 
     # A product stored earlier under another brand is not re-counted when reused on the next search.
     conn = connect(db)
-    conn.execute("UPDATE products SET brand = 'Glowco', field_meta = json_set(COALESCE(field_meta, '{}'), '$.brand', json('{}')) "
+    conn.execute("UPDATE products SET brand = 'Glowco', title = 'Glowco Brightnest 360 Refill', field_meta = json_set(COALESCE(field_meta, '{}'), '$.brand', json('{}')) "
                  "WHERE asin = 'B0BRIGHT01'")
     conn.commit()
     conn.close()
     _, _, items2, conn = run(db, FakeSource(site))
     assert items2["B0BRIGHT01"]["outcome"] == NOT_BRAND
     conn.close()
+
+
+def test_brand_relevance_rules():
+    from opportunity_finder.services.brand_research import brand_relevance
+    assert brand_relevance("Aero", "byline", "AERO Milkybar", "Aero")[0] == "brand_verified"
+    assert brand_relevance("Nestlé Aero", "details", "Bubbly bar", "Aero")[0] == "brand_verified"
+    assert brand_relevance("Unibond", "byline", "UniBond AERO 360° Moisture Absorber Refill", "Aero")[0] == "brand_mismatch"
+    assert brand_relevance("Manhattan", "byline", "Manhattan Aero 4K TV Streamer", "Aero")[0] == "brand_mismatch"
+    assert brand_relevance("Nestlé Česko s.r.o.", "byline", "Aero Peppermint Giant Gifting Bar, 295g", "Aero")[0] == "brand_uncertain"
+    assert brand_relevance("Nestlé", "byline", "Nestlé Big Chocolate Box 30 Bars", "Aero")[0] == "brand_mismatch"
+    assert brand_relevance(None, None, "Aero bar", "Aero")[0] == "title_match"
+    assert brand_relevance("Some Maker", "manufacturer", "Aero bar", "Aero")[0] == "title_match"
 
 
 def test_missing_data_is_not_fabricated(db):
