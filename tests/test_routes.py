@@ -323,3 +323,18 @@ def test_unexpected_errors_are_friendly(client, monkeypatch):
     body = text(response)
     assert response.status_code == 500 and "Something went wrong" in body and "Reference" in body
     assert "database exploded" not in body and "Traceback" not in body
+
+
+def test_allowed_host_suffix_for_hosting(data_dir):
+    client = make_app(data_dir, ALLOWED_HOSTS={"127.0.0.1", "localhost", ".up.railway.app"}).test_client()
+    assert client.get("/health", headers={"Host": "demo-123.up.railway.app"}).status_code == 200
+    assert client.get("/health", headers={"Host": "up.railway.app.evil.com"}).status_code == 400
+    assert client.get("/health", headers={"Host": "evilup.railway.app"}).status_code == 400
+
+
+def test_port_falls_back_to_platform_port(monkeypatch, tmp_path):
+    monkeypatch.delenv("AOF_PORT", raising=False)
+    monkeypatch.setenv("PORT", "5123")
+    assert Config(DATA_DIR=tmp_path, SECRET_KEY="x").PORT == 5123
+    monkeypatch.setenv("AOF_PORT", "8899")
+    assert Config(DATA_DIR=tmp_path, SECRET_KEY="x").PORT == 8899

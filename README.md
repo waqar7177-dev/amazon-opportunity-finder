@@ -30,6 +30,7 @@ It runs entirely on your own computer at **http://127.0.0.1:8877**. No login, no
 - [Project structure](#project-structure)
 - [Running the tests](#running-the-tests)
 - [Future Keepa integration](#future-keepa-integration)
+- [Sharing a demo online (optional)](#sharing-a-demo-online-optional)
 - [Troubleshooting](#troubleshooting)
 - [Known limitations](#known-limitations)
 
@@ -490,6 +491,25 @@ Version 1 needs no Keepa account. The integration point is ready:
    duplicates and exports then work unchanged. The `product_snapshots` table is ready to store imported history.
 
 Until then the Settings page shows Keepa as *Off*, and nothing is sent anywhere.
+
+---
+
+## Sharing a demo online (optional)
+
+The app is built as a **local** tool: it has no login, so anyone who can open it can add, change and
+delete data. Only put a *demo* copy online, never your real product research.
+
+A `Procfile` (`web: python app.py --no-browser`) and `.python-version` are included, so Python hosts such
+as Railway or Render can run it directly. Set these environment variables on the host:
+
+| Variable | Value | Why |
+|---|---|---|
+| `AOF_HOST` | `0.0.0.0` | listen on the host's network interface |
+| `AOF_ALLOWED_HOSTS` | the public domain, or a suffix such as `.up.railway.app` | the Host check refuses unknown domains |
+| `AOF_OPEN_BROWSER` | `0` | there is no browser on a server |
+
+`PORT` is picked up automatically. On most hosts the SQLite file is reset on every redeploy, so the demo
+starts empty each time.
 
 ---
 

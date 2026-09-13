@@ -36,7 +36,9 @@ def init_security(app: Flask) -> None:
     @app.before_request
     def _check_host():
         host = (request.host or "").rsplit(":", 1)[0].lower() if not request.host.startswith("[") else request.host.split("]")[0] + "]"
-        if host not in app.config["ALLOWED_HOSTS"]:
+        allowed = app.config["ALLOWED_HOSTS"]
+        # An entry starting with a dot allows every subdomain of it, e.g. ".up.railway.app".
+        if host not in allowed and not any(entry.startswith(".") and host.endswith(entry) for entry in allowed):
             abort(400)
 
     @app.before_request

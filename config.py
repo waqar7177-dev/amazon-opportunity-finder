@@ -61,7 +61,8 @@ class Config:
         data_dir = Path(os.environ.get("AOF_DATA_DIR", "").strip() or BASE_DIR / "data")
         self.DATA_DIR = Path(overrides.pop("DATA_DIR", data_dir))
         self.HOST = os.environ.get("AOF_HOST", "127.0.0.1").strip() or "127.0.0.1"
-        self.PORT = _int("AOF_PORT", 8877)
+        # AOF_PORT wins; PORT is what hosting platforms (Railway, Render, …) provide.
+        self.PORT = _int("AOF_PORT", _int("PORT", 8877))
         self.OPEN_BROWSER = _bool("AOF_OPEN_BROWSER", True)
         extra_hosts = [h.strip().lower() for h in os.environ.get("AOF_ALLOWED_HOSTS", "").split(",") if h.strip()]
         self.ALLOWED_HOSTS = {"127.0.0.1", "localhost", "::1", "[::1]"} | set(extra_hosts)
