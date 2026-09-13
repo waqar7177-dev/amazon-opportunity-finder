@@ -1,0 +1,1 @@
+"""Amazon UK Opportunity Finder."""

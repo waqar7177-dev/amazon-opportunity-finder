@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Local data — the database, logs, backups and import previews never leave this machine
+data/
+*.db
+*.db-journal
+
+# Secrets
+.env
+
+# Node (optional browser smoke test)
+node_modules/
+tests/e2e/screenshots/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

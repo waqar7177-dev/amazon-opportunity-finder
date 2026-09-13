@@ -1,0 +1,6 @@
+# Runtime dependencies. All pure Python on purpose, so they install on locked-down
+# Windows machines (Smart App Control / application-control policies) without compiling.
+Flask>=3.0,<4
+openpyxl>=3.1,<4
+waitress>=3.0,<4
+python-dotenv>=1.0,<2

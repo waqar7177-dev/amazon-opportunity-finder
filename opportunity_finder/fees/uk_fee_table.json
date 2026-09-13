@@ -1,0 +1,164 @@
+{
+  "marketplace": "amazon.co.uk",
+  "currency": "GBP",
+  "version": "uk-2026-07",
+  "effective_from": "2026-07-01",
+  "checked_on": "2026-09-13",
+  "sources": [
+    "Amazon Europe FBA Rate Card, effective 1 July 2026 (m.media-amazon.com/images/G/02/sell/images/260630-FBA-Rate-Card-EN1.pdf) - UK (GBP) column",
+    "Amazon UK referral fee table, sell.amazon.co.uk/pricing",
+    "Amazon digital services fee for UK-established sellers: 2% of selling and FBA fees",
+    "Fuel and logistics-related surcharge: 1.5% of FBA fulfilment fees from 17 April 2026"
+  ],
+  "disclaimer": "ESTIMATED fees only. Confirm exact fees in Amazon Seller Central Revenue Calculator before purchasing stock.",
+  "notes": [
+    "Page 6 of the rate card lists Small oversize above 760 g at +0.25/kg; the peak table on page 7 lists +0.22/kg. The page 6 (main table) figure is used.",
+    "Storage fees, inbound placement fees, returns processing, low-inventory fees and advertising are not included.",
+    "Media categories (books, music, video, DVD, software, video games) can carry an additional closing fee that is not included."
+  ],
+  "dimensional_weight_divisor": 5000,
+
+  "referral_categories": [
+    {"key": "everything_else", "label": "Everything else", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "amazon_device_accessories", "label": "Amazon Device Accessories", "type": "flat", "rate": 45, "min_fee": 0.25},
+    {"key": "automotive_powersports", "label": "Automotive and Powersports", "type": "marginal", "bands": [[45, 15], [null, 9]], "min_fee": 0.25},
+    {"key": "baby_products", "label": "Baby Products", "type": "whole_price", "bands": [[10, 8], [null, 15]], "min_fee": 0.25},
+    {"key": "baby_pushchairs_safety", "label": "Baby Pushchairs and Safety Equipment", "type": "whole_price", "bands": [[10, 8], [null, 15]], "min_fee": 0.25},
+    {"key": "backpacks_handbags", "label": "Rucksacks and Handbags", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "beauty_health_personal_care", "label": "Beauty, Health and Personal Care", "type": "whole_price", "bands": [[10, 8], [null, 15]], "min_fee": 0.25},
+    {"key": "beer_wine_spirits", "label": "Beer, Wine and Spirits", "type": "flat", "rate": 10, "min_fee": 0.25},
+    {"key": "books", "label": "Books", "type": "flat", "rate": 15, "min_fee": null},
+    {"key": "business_industrial_scientific", "label": "Business, Industrial and Scientific Supplies", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "clothing_accessories", "label": "Clothing and Accessories", "type": "whole_price", "bands": [[15, 5], [20, 10], [null, 15]], "min_fee": 0.25},
+    {"key": "commercial_electrical_energy", "label": "Commercial Electrical and Energy Supplies", "type": "flat", "rate": 12, "min_fee": 0.25},
+    {"key": "compact_appliances", "label": "Compact Appliances", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "computers", "label": "Computers", "type": "flat", "rate": 7, "min_fee": 0.25},
+    {"key": "consumer_electronics", "label": "Consumer Electronics", "type": "flat", "rate": 7, "min_fee": 0.25},
+    {"key": "cycling_accessories", "label": "Cycling Accessories", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "door_window_shower", "label": "Door, Window and Shower Accessories", "type": "flat", "rate": 13, "min_fee": 0.25},
+    {"key": "electronic_accessories", "label": "Electronic Accessories", "type": "marginal", "bands": [[100, 15], [null, 8]], "min_fee": 0.25},
+    {"key": "eyewear", "label": "Eyewear", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "eyewear_protection", "label": "Eyewear Protection", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "footwear", "label": "Footwear", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "full_size_appliances", "label": "Full-Size Appliances", "type": "flat", "rate": 7, "min_fee": 0.25},
+    {"key": "furniture", "label": "Furniture", "type": "marginal", "bands": [[175, 15], [null, 10]], "min_fee": 0.25},
+    {"key": "furniture_accessories", "label": "Furniture Accessories", "type": "flat", "rate": 13, "min_fee": 0.25},
+    {"key": "grocery_gourmet", "label": "Grocery and Gourmet", "type": "whole_price", "bands": [[10, 5], [null, 15]], "min_fee": null},
+    {"key": "handmade", "label": "Handmade", "type": "flat", "rate": 12, "min_fee": 0.25},
+    {"key": "home_adhesives_cable_ties", "label": "Home Adhesives and Cable Ties", "type": "flat", "rate": 13, "min_fee": 0.25},
+    {"key": "home_linen_rugs", "label": "Home Linen and Rugs", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "home_products", "label": "Home Products", "type": "whole_price", "bands": [[20, 8], [null, 15]], "min_fee": 0.25},
+    {"key": "jewellery", "label": "Jewellery", "type": "marginal", "bands": [[225, 20], [null, 5]], "min_fee": 0.25},
+    {"key": "kitchen", "label": "Kitchen", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "lawn_garden", "label": "Lawn and Garden", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "luggage", "label": "Luggage", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "luggage_accessories", "label": "Luggage Accessories", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "mattresses", "label": "Mattresses", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "music_video_dvd", "label": "Music, Video and DVD", "type": "flat", "rate": 15, "min_fee": null},
+    {"key": "musical_instruments_av", "label": "Musical Instruments and AV Production", "type": "flat", "rate": 12, "min_fee": 0.25},
+    {"key": "office_products", "label": "Office Products", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "packing_materials", "label": "Packing Materials", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "pet_clothing_food", "label": "Pet Clothing and Food", "type": "whole_price", "bands": [[10, 5], [null, 15]], "min_fee": 0.25},
+    {"key": "pet_supplies", "label": "Pet Supplies", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "printer_scanner_accessories", "label": "Printer and Scanner Accessories", "type": "marginal", "bands": [[100, 15], [null, 8]], "min_fee": 0.25},
+    {"key": "reusable_work_safety_gloves", "label": "Reusable Work and Safety Gloves", "type": "whole_price", "bands": [[10, 8], [null, 15]], "min_fee": 0.25},
+    {"key": "software", "label": "Software", "type": "flat", "rate": 15, "min_fee": null},
+    {"key": "sports_outdoors", "label": "Sports and Outdoors", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "tools_home_improvement", "label": "Tools and Home Improvement", "type": "flat", "rate": 13, "min_fee": 0.25},
+    {"key": "toys_games", "label": "Toys and Games", "type": "flat", "rate": 15, "min_fee": 0.25},
+    {"key": "tyres", "label": "Tyres", "type": "flat", "rate": 7, "min_fee": 0.25},
+    {"key": "video_game_consoles", "label": "Video Game Consoles", "type": "flat", "rate": 8, "min_fee": null},
+    {"key": "video_games_accessories", "label": "Video Games and Gaming Accessories", "type": "flat", "rate": 15, "min_fee": null},
+    {"key": "vitamins_minerals_supplements", "label": "Vitamins, Minerals and Supplements", "type": "whole_price", "bands": [[10, 5], [null, 15]], "min_fee": 0.25},
+    {"key": "watches", "label": "Watches", "type": "marginal", "bands": [[225, 15], [null, 5]], "min_fee": 0.25}
+  ],
+
+  "media_categories": ["books", "music_video_dvd", "software", "video_games_accessories", "video_game_consoles"],
+
+  "surcharges": {
+    "digital_services_fee_pct": 2.0,
+    "fuel_logistics_pct": 1.5,
+    "fuel_logistics_from": "2026-04-17",
+    "dangerous_goods_per_unit": 0.10,
+    "vat_rate_pct": 20.0
+  },
+
+  "low_price_fba": {
+    "max_price": 20.0,
+    "reduced_max_price": 10.0,
+    "reduced_threshold_categories": [
+      "beauty_health_personal_care", "business_industrial_scientific", "office_products",
+      "grocery_gourmet", "books", "amazon_device_accessories", "kitchen"
+    ],
+    "tiers": [
+      {"key": "light_envelope", "label": "Light envelope", "max_dims": [33, 23, 2.5], "bands": [[20, 1.46], [40, 1.50], [60, 1.52], [80, 1.67], [100, 1.70]]},
+      {"key": "standard_envelope", "label": "Standard envelope", "max_dims": [33, 23, 2.5], "bands": [[210, 1.73], [460, 1.87]]},
+      {"key": "large_envelope", "label": "Large envelope", "max_dims": [33, 23, 4], "bands": [[960, 2.42]]},
+      {"key": "extra_large_envelope", "label": "Extra-large envelope", "max_dims": [33, 23, 6], "bands": [[960, 2.65]]},
+      {"key": "small_parcel", "label": "Small parcel", "max_dims": [35, 25, 12], "bands": [[150, 2.67], [400, 2.70]]}
+    ]
+  },
+
+  "standard_fba": {
+    "tiers": [
+      {"key": "light_envelope", "label": "Light envelope", "kind": "envelope", "max_dims": [33, 23, 2.5], "max_unit_g": 100,
+       "bands": [[20, 1.83], [40, 1.87], [60, 1.89], [80, 2.07], [100, 2.08]]},
+      {"key": "standard_envelope", "label": "Standard envelope", "kind": "envelope", "max_dims": [33, 23, 2.5], "max_unit_g": 460,
+       "bands": [[210, 2.10], [460, 2.16]]},
+      {"key": "large_envelope", "label": "Large envelope", "kind": "envelope", "max_dims": [33, 23, 4], "max_unit_g": 960,
+       "bands": [[960, 2.72]]},
+      {"key": "extra_large_envelope", "label": "Extra-large envelope", "kind": "envelope", "max_dims": [33, 23, 6], "max_unit_g": 960,
+       "bands": [[960, 2.94]]},
+      {"key": "small_parcel", "label": "Small parcel", "kind": "parcel", "max_dims": [35, 25, 12], "max_unit_g": 3900, "max_dim_weight_g": 2100,
+       "bands": [[150, 2.91], [400, 3.00], [900, 3.04], [1400, 3.05], [1900, 3.25], [3900, 3.27]]},
+      {"key": "standard_parcel", "label": "Standard parcel", "kind": "parcel", "max_dims": [45, 34, 26], "max_unit_g": 11900, "max_dim_weight_g": 7960,
+       "bands": [[150, 2.94], [400, 3.01], [900, 3.06], [1400, 3.26], [1900, 3.48], [2900, 3.49], [3900, 3.54], [5900, 3.56], [8900, 3.57], [11900, 3.58]]},
+      {"key": "small_oversize", "label": "Small oversize", "kind": "oversize", "max_dims": [61, 46, 46], "max_unit_g": 1760, "max_dim_weight_g": 25820,
+       "base_up_to_g": 760, "base_fee": 3.49, "per_kg_above": 0.25},
+      {"key": "standard_oversize_light", "label": "Standard oversize light", "kind": "oversize", "max_dims": [101, 60, 60], "max_unit_g": 15000, "max_dim_weight_g": 72720,
+       "base_up_to_g": 760, "base_fee": 4.35, "per_kg_above": 0.15},
+      {"key": "standard_oversize_heavy", "label": "Standard oversize heavy", "kind": "oversize", "max_dims": [101, 60, 60], "min_unit_g_exclusive": 15000, "max_unit_g": 23000, "max_dim_weight_g": 72720,
+       "base_up_to_g": 15760, "base_fee": 6.58, "per_kg_above": 0.08},
+      {"key": "standard_oversize_large", "label": "Standard oversize large", "kind": "oversize", "max_dims": [120, 60, 60], "max_unit_g": 23000, "max_dim_weight_g": 86400,
+       "base_up_to_g": 760, "base_fee": 5.67, "per_kg_above": 0.07},
+      {"key": "bulky_oversize", "label": "Bulky oversize", "kind": "oversize", "max_dims": null, "max_unit_g": 23000, "max_dim_weight_g": 126000,
+       "base_up_to_g": 760, "base_fee": 10.20, "per_kg_above": 0.24},
+      {"key": "heavy_oversize", "label": "Heavy oversize", "kind": "oversize", "max_dims": null, "min_unit_g_exclusive": 23000, "max_unit_g": 31500, "max_dim_weight_g": 126000,
+       "base_up_to_g": 31500, "base_fee": 13.04, "per_kg_above": 0.09},
+      {"key": "special_oversize", "label": "Special oversize", "kind": "special",
+       "bands": [[30000, 16.22], [40000, 17.24], [50000, 34.38], [60000, 42.04]], "per_kg_above": 0.35}
+    ],
+    "special_oversize_rules": {"min_unit_g_exclusive": 31500, "longest_side_cm_exclusive": 175, "length_plus_girth_cm_exclusive": 360}
+  },
+
+  "selected_category_parcels": {
+    "categories": [
+      "baby_pushchairs_safety", "door_window_shower", "eyewear_protection", "footwear", "furniture_accessories",
+      "grocery_gourmet", "home_adhesives_cable_ties", "home_linen_rugs", "luggage_accessories", "mattresses",
+      "packing_materials", "pet_clothing_food", "printer_scanner_accessories", "reusable_work_safety_gloves",
+      "clothing_accessories", "backpacks_handbags"
+    ],
+    "tiers": [
+      {"key": "small_parcel_1", "label": "Small parcel 1", "max_dims": [35, 25, 7], "max_unit_g": 3900, "base_fee": 2.83, "per_100g": 0.02, "peak_base_fee": 2.94, "peak_per_100g": 0.02},
+      {"key": "small_parcel_2", "label": "Small parcel 2", "max_dims": [35, 25, 9], "max_unit_g": 3900, "base_fee": 2.87, "per_100g": 0.02, "peak_base_fee": 2.98, "peak_per_100g": 0.02},
+      {"key": "small_parcel_3", "label": "Small parcel 3", "max_dims": [35, 25, 12], "max_unit_g": 3900, "base_fee": 2.91, "per_100g": 0.02, "peak_base_fee": 3.02, "peak_per_100g": 0.02},
+      {"key": "medium_parcel_1", "label": "Medium parcel 1", "max_dims": [40, 30, 6], "max_unit_g": 11900, "base_fee": 2.97, "per_100g": 0.02, "peak_base_fee": 3.08, "peak_per_100g": 0.02},
+      {"key": "medium_parcel_2", "label": "Medium parcel 2", "max_dims": [40, 30, 20], "max_unit_g": 11900, "base_fee": 3.10, "per_100g": 0.03, "peak_base_fee": 3.22, "peak_per_100g": 0.03},
+      {"key": "large_parcel_1", "label": "Large parcel 1", "max_dims": [45, 34, 10], "max_unit_g": 11900, "base_fee": 3.34, "per_100g": 0.03, "peak_base_fee": 3.47, "peak_per_100g": 0.03},
+      {"key": "large_parcel_2", "label": "Large parcel 2", "max_dims": [45, 34, 26], "max_unit_g": 11900, "base_fee": 3.97, "per_100g": 0.03, "peak_base_fee": 4.12, "peak_per_100g": 0.03}
+    ]
+  },
+
+  "peak_season": {
+    "label": "Festive peak fees (15 Oct - 14 Jan)",
+    "start_month_day": [10, 15],
+    "end_month_day": [1, 14],
+    "excluded_categories": ["clothing_accessories"],
+    "standard_fba_bands": {
+      "large_envelope": [[960, 2.79]],
+      "extra_large_envelope": [[960, 3.01]],
+      "small_parcel": [[150, 3.02], [400, 3.11], [900, 3.15], [1400, 3.16], [1900, 3.37], [3900, 3.39]],
+      "standard_parcel": [[150, 3.05], [400, 3.12], [900, 3.18], [1400, 3.38], [1900, 3.61], [2900, 3.62], [3900, 3.67], [5900, 3.69], [8900, 3.70], [11900, 3.71]]
+    }
+  }
+}
