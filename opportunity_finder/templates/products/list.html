@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, status_badge, risk_badge, est, score_pill, money_cell, empty, sort_th, pager %}
+{% block title %}Products{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Products</h1>
+    <p class="lead">{{ total_active }} active product{{ '' if total_active == 1 else 's' }}{% if archived_count %} · {{ archived_count }} archived{% endif %}. Click a column to sort; open a product for the full breakdown.</p>
+  </div>
+  <div class="row">
+    {% if result.total %}
+    <a class="btn ghost" href="{{ url_for('exports.excel') }}?scope=filtered&amp;{{ query.url_args() }}" data-loading>{{ icon("download") }}Excel</a>
+    <a class="btn ghost" href="{{ url_for('exports.csv') }}?scope=filtered&amp;{{ query.url_args() }}">{{ icon("file") }}CSV</a>
+    {% endif %}
+    <form method="post" action="{{ url_for('products.reevaluate_all') }}" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ request.full_path }}">
+      <button class="btn ghost" type="submit" data-loading title="Recalculate every product with the current settings and fee table">{{ icon("refresh") }}Re-evaluate all</button>
+    </form>
+    <a class="btn" href="{{ url_for('products.new_product') }}">{{ icon("plus") }}Add product</a>
+  </div>
+</div>
+
+<nav class="chips mb" aria-label="Filter by status">
+  <a class="chip {{ 'on' if not query.status }}" href="?{{ query.url_args(status='', page=1) }}">All <span class="count">{{ total_active }}</span></a>
+  {% for s in C.STATUSES %}
+  <a class="chip {{ 'on' if query.status == s }}" href="?{{ query.url_args(status=s, page=1) }}" {% if query.status == s %}aria-current="true"{% endif %}>
+    <span class="sym" aria-hidden="true">{{ C.STATUS_STYLE[s].symbol }}</span>{{ C.STATUS_LABELS[s] }} <span class="count">{{ counts[s] }}</span></a>
+  {% endfor %}
+</nav>
+
+<section class="card">
+  <form method="get" role="search" aria-label="Search and filter products">
+    <input type="hidden" name="sort" value="{{ query.sort }}">
+    <input type="hidden" name="dir" value="{{ query.direction }}">
+    {% if query.status %}<input type="hidden" name="status" value="{{ query.status }}">{% endif %}
+    <div class="filters">
+      <div class="field search-field">
+        <label for="q">Search</label>
+        <div class="search">{{ icon("search") }}<input id="q" type="search" name="q" value="{{ query.q }}" placeholder="ASIN, title, brand, supplier, notes…"></div>
+      </div>
+      <div class="field">
+        <label for="risk">Risk</label>
+        <select id="risk" name="risk">
+          <option value="">Any risk</option>
+          {% for level in C.RISK_LEVELS %}<option value="{{ level }}" {{ 'selected' if query.risk == level }}>{{ level|title }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="category">Category</label>
+        <select id="category" name="category">
+          <option value="">Any category</option>
+          {% for c in categories %}<option value="{{ c }}" {{ 'selected' if query.category|lower == c|lower }}>{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="view">Show</label>
+        <select id="view" name="view">
+          <option value="active" {{ 'selected' if query.view == 'active' }}>Active products</option>
+          <option value="archived" {{ 'selected' if query.view == 'archived' }}>Archived only</option>
+          <option value="all" {{ 'selected' if query.view == 'all' }}>Active and archived</option>
+        </select>
+      </div>
+      <div class="row tight">
+        <button class="btn" type="submit">{{ icon("filter") }}Apply</button>
+        {% if query.active_filters or query.status %}<a class="btn ghost" href="{{ url_for('products.list_products') }}">Clear</a>{% endif %}
+      </div>
+    </div>
+    <details class="more mt-sm" {{ 'open' if query.roi_min is not none or query.roi_max is not none or query.bsr_min is not none or query.bsr_max is not none }}>
+      <summary>{{ icon("chevron") }}ROI, BSR and page size</summary>
+      <div class="filters-more">
+        <div class="field"><label for="roi_min">ROI from (%)</label><input id="roi_min" name="roi_min" type="text" inputmode="decimal" value="{{ query.roi_min if query.roi_min is not none else '' }}" placeholder="e.g. 20"></div>
+        <div class="field"><label for="roi_max">ROI to (%)</label><input id="roi_max" name="roi_max" type="text" inputmode="decimal" value="{{ query.roi_max if query.roi_max is not none else '' }}"></div>
+        <div class="field"><label for="bsr_min">BSR from</label><input id="bsr_min" name="bsr_min" type="text" inputmode="numeric" value="{{ query.bsr_min if query.bsr_min is not none else '' }}"></div>
+        <div class="field"><label for="bsr_max">BSR to</label><input id="bsr_max" name="bsr_max" type="text" inputmode="numeric" value="{{ query.bsr_max if query.bsr_max is not none else '' }}" placeholder="e.g. 25000"></div>
+        <div class="field"><label for="per_page">Rows per page</label>
+          <select id="per_page" name="per_page">{% for n in per_page_choices %}<option value="{{ n }}" {{ 'selected' if query.per_page == n }}>{{ n }}</option>{% endfor %}</select></div>
+      </div>
+    </details>
+  </form>
+</section>
+
+<section class="mt" aria-label="Product results">
+{% if not result.total %}
+  <div class="card">
+  {% if total_active == 0 and not query.active_filters and not query.status %}
+    {{ empty("box", "No products yet", "Add a product by pasting its Amazon page, typing the details, or importing a spreadsheet.",
+             url_for('products.new_product'), "Add product", url_for('imports.start'), "Bulk import") }}
+  {% else %}
+    {{ empty("search", "No products match", "Try a different search or remove some filters.", url_for('products.list_products'), "Clear all filters") }}
+  {% endif %}
+  </div>
+{% else %}
+<form method="post" action="{{ url_for('products.bulk') }}" id="bulk-form" data-bulk>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="next" value="{{ request.full_path }}">
+  <input type="hidden" name="confirm" value="">
+  <div class="table-wrap tall">
+    <table class="data products-table">
+      <caption class="sr-only">Products, sorted by {{ query.sort }} {{ query.direction }}ending</caption>
+      <thead><tr>
+        <th scope="col" class="check-col"><input type="checkbox" data-select-all aria-label="Select all products on this page"></th>
+        {{ sort_th(query, "asin", "ASIN") }}
+        {{ sort_th(query, "title", "Product") }}
+        {{ sort_th(query, "price", "Amazon price", "num") }}
+        {{ sort_th(query, "bsr", "BSR", "num") }}
+        {{ sort_th(query, "sellers", "Sellers", "num") }}
+        {{ sort_th(query, "fba_sellers", "FBA", "num") }}
+        {{ sort_th(query, "sales", "Sales / mo", "num", True) }}
+        {{ sort_th(query, "sourcing", "Cost", "num") }}
+        {{ sort_th(query, "fees", "Fees", "num", True) }}
+        {{ sort_th(query, "profit", "Profit / unit", "num", True) }}
+        {{ sort_th(query, "roi", "ROI", "num", True) }}
+        {{ sort_th(query, "cons_units", "Cons. units", "num", True) }}
+        {{ sort_th(query, "cons_profit", "Cons. profit / mo", "num", True) }}
+        {{ sort_th(query, "score", "Score", "num") }}
+        {{ sort_th(query, "risk", "Risk") }}
+        {{ sort_th(query, "status", "Status") }}
+        {{ sort_th(query, "checked", "Last checked") }}
+      </tr></thead>
+      <tbody>
+      {% for i in result["items"] %}{% set p = i.product %}{% set e = i.evaluation %}
+        <tr class="{{ 'is-archived' if p.archived }}">
+          <td class="check-col"><input type="checkbox" name="ids" value="{{ p.id }}" aria-label="Select {{ p.display_name }}"></td>
+          <td class="mono nowrap">{{ p.asin or "—" }}</td>
+          <td><div class="cell-product">
+            <a class="product-link" href="{{ url_for('products.detail', pid=p.id) }}">{{ p.display_name }}</a>
+            <span class="meta">{{ p.brand or "No brand" }}{% if p.supplier %} · {{ p.supplier }}{% endif %}{% if p.archived %} · <span class="tag">Archived</span>{% endif %}</span>
+          </div></td>
+          <td class="num">{{ p.selling_price|money }}</td>
+          <td class="num">{{ p.bsr|whole }}</td>
+          <td class="num">{{ p.total_sellers|whole }}</td>
+          <td class="num">{{ p.fba_sellers|whole }}</td>
+          <td class="num">{{ p.monthly_sales|whole }}</td>
+          <td class="num">{{ p.sourcing_price|money }}</td>
+          <td class="num">{{ e.fees.total_fees|money }}</td>
+          <td class="num">{{ money_cell(e.profit.net_profit) }}</td>
+          <td class="num">{{ e.profit.roi_pct|pct }}</td>
+          <td class="num">{{ e.profit.conservative_units|whole }}</td>
+          <td class="num"><b>{{ money_cell(e.profit.conservative_monthly_profit) }}</b></td>
+          <td class="num">{{ score_pill(e.score.total if e.score else none) }}</td>
+          <td>{{ risk_badge(e.risk.level) }}</td>
+          <td>{{ status_badge(e.status) }}</td>
+          <td class="nowrap" title="{{ p.amazon_checked_at|datetime }}">{{ p.amazon_checked_at|ago }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="row between table-foot">
+    <span>Showing {{ result.start }}–{{ result.end }} of {{ result.total }}</span>
+    {{ pager(query, result) }}
+  </div>
+  <div class="bulkbar" data-bulkbar>
+    <span class="count" data-selected-count>Select products to act on several at once</span>
+    <button class="btn ghost sm" type="submit" name="action" value="archive">{{ icon("archive") }}Archive</button>
+    <button class="btn ghost sm" type="submit" name="action" value="unarchive">Restore</button>
+    <button class="btn ghost sm" type="submit" name="action" value="reevaluate">{{ icon("refresh") }}Re-evaluate</button>
+    <button class="btn ghost sm" type="submit" name="action" value="export_excel">{{ icon("download") }}Export Excel</button>
+    <button class="btn ghost sm" type="submit" name="action" value="export_csv">Export CSV</button>
+    <button class="btn danger sm" type="submit" name="action" value="delete"
+            data-confirm="Delete the selected products and their history? This cannot be undone." data-confirm-label="Delete">{{ icon("trash") }}Delete</button>
+  </div>
+</form>
+<p class="fineprint">{{ icon("info") }}<span>Columns marked {{ est() }} are estimates. Fees use the UK fee table — confirm exact fees in the Seller Central Revenue Calculator before purchasing stock. Conservative units = estimated monthly sales × your capture rate.</span></p>
+{% endif %}
+</section>
+{% endblock %}

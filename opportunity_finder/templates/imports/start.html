@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Bulk import{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Bulk import</h1>
+    <p class="lead">Add many products at once from a CSV or Excel file, or rows pasted from a spreadsheet. You see a full preview first — nothing is saved until you confirm.</p>
+  </div>
+</div>
+
+<nav class="tabs method-tabs" aria-label="How to add a product">
+  <a class="tab" href="{{ url_for('products.new_product', method='paste') }}">{{ icon("clipboard") }}Smart paste</a>
+  <a class="tab" href="{{ url_for('products.new_product', method='manual') }}">{{ icon("edit") }}Manual entry</a>
+  <a class="tab on" href="{{ url_for('imports.start') }}" aria-current="page">{{ icon("upload") }}Bulk import</a>
+</nav>
+
+<div class="grid-2">
+  <section class="card" aria-labelledby="upload-h">
+    <div class="card-head"><div><h2 id="upload-h">{{ icon("upload") }}1. Choose your data</h2>
+      <p class="sub">The first row must be the column headings.</p></div></div>
+    <form method="post" action="{{ url_for('imports.upload') }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="drop">
+        {{ icon("file") }}
+        <b>Choose a CSV or Excel file</b>
+        <small>or drag it here · .csv or .xlsx · up to 10 MB and {{ "{:,}".format(max_rows) }} rows</small>
+        <span class="file-name" aria-live="polite"></span>
+        <input type="file" name="file" accept=".csv,.xlsx,.xlsm,.tsv,.txt" aria-label="CSV or Excel file">
+      </label>
+      <details class="more mt" {{ 'open' if pasted }}>
+        <summary>{{ icon("chevron") }}Or paste rows copied from Excel / Google Sheets</summary>
+        <label for="pasted" class="sr-only">Pasted rows</label>
+        <textarea id="pasted" name="pasted" class="paste mt-sm" placeholder="Copy the rows including the heading row, then paste here…">{{ pasted or '' }}</textarea>
+      </details>
+      <div class="row end mt">
+        <button class="btn" type="submit" data-loading>{{ icon("search") }}Preview import</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card" aria-labelledby="tpl-h">
+    <div class="card-head"><div><h2 id="tpl-h">{{ icon("download") }}Start from the template</h2>
+      <p class="sub">Column names are matched automatically — common alternatives like “Cost” or “Sales Rank” work too.</p></div></div>
+    <div class="row">
+      <a class="btn ghost" href="{{ url_for('imports.template_xlsx') }}">{{ icon("download") }}Excel template</a>
+      <a class="btn ghost" href="{{ url_for('imports.template_csv') }}">{{ icon("download") }}CSV template</a>
+    </div>
+    <div class="notice mt">{{ icon("info") }}
+      <div><h4>How rows are checked</h4>
+        <ul>
+          <li>Only <b>ASIN, Title or Amazon URL</b> is required. Missing values are never guessed — those products show as Incomplete Data.</li>
+          <li>Every row is validated like the product form. Rows with problems are listed with the reason and are not imported.</li>
+          <li>Rows matching products you already have: choose to skip, update or create duplicates in the preview.</li>
+          <li>The import saves in one step — if anything fails, nothing is saved.</li>
+        </ul></div>
+    </div>
+    <details class="more mt">
+      <summary>{{ icon("chevron") }}All columns you can use ({{ fields|length }})</summary>
+      <div class="table-wrap mt-sm">
+        <table class="data">
+          <thead><tr><th scope="col">Column</th><th scope="col">Also recognised as</th></tr></thead>
+          <tbody>
+          {% for key, title, aliases in fields %}
+            <tr><td class="nowrap"><b>{{ title }}</b>{% if key in ("asin", "title", "amazon_url") %} <span class="tag">identifies</span>{% endif %}</td>
+              <td class="small muted">{{ aliases[:5]|join(", ") }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+</div>
+{% endblock %}

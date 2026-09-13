@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Edit {{ product.display_name }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('products.detail', pid=product.id) }}">{{ icon("arrow-left") }}Back to product</a>
+<div class="page-head">
+  <div>
+    <h1>Edit product</h1>
+    <p class="lead">{{ product.display_name }}{% if product.asin %} · <span class="mono">{{ product.asin }}</span>{% endif %}. Saving re-evaluates it with your current settings.</p>
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('products.edit', pid=product.id) }}" novalidate data-product-form>
+  {% if duplicates %}
+  <section class="notice warn mb" role="alert" tabindex="-1" data-focus-me>
+    {{ icon("copy") }}
+    <div style="flex:1">
+      <h4>Another product matches these details</h4>
+      <ul>
+        {% for d in duplicates %}
+        <li>{{ d.reason }}: <a href="{{ url_for('products.detail', pid=d.product.id) }}" target="_blank" rel="noopener">{{ d.product.display_name }} {{ icon("external") }}</a></li>
+        {% endfor %}
+      </ul>
+      <div class="row mt-sm">
+        <button class="btn" type="submit" name="duplicate_action" value="save">Save anyway</button>
+        <a class="btn ghost" href="{{ url_for('products.detail', pid=product.id) }}">Cancel</a>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+  {% include "products/_form.html" %}
+</form>
+{% endblock %}

@@ -1,0 +1,162 @@
+{% from "_macros.html" import icon, field, est, raw, extracted_badge %}
+{# Shared by Add and Edit. Expects: values, errors, warnings, fee_categories, restriction_labels, fulfilment_labels,
+   risk_flags; optional: product, extracted, price_candidates. #}
+{% set is_edit = product is defined and product %}
+{% set extracted = extracted if extracted is defined and extracted else {} %}
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="source" value="{{ values.get('source') or 'manual' }}">
+{% if is_edit %}<input type="hidden" name="product_id" value="{{ product.id }}">{% endif %}
+
+{% if errors %}
+<div class="notice bad mb" role="alert" tabindex="-1" data-error-summary>
+  {{ icon("alert") }}
+  <div><h4>{{ errors|length }} field{{ '' if errors|length == 1 else 's' }} need{{ 's' if errors|length == 1 else '' }} fixing</h4>
+    <ul>{% for name, message in errors.items() %}<li><a href="#f-{{ name }}">{{ message }}</a></li>{% endfor %}</ul></div>
+</div>
+{% endif %}
+
+<div class="form-layout">
+  <div class="card flush">
+    <section class="form-section" aria-labelledby="sec-identity">
+      <h3 id="sec-identity">{{ icon("box") }}Identity</h3>
+      <p class="sub">How you recognise the product. Give at least an ASIN, a title or an Amazon URL.</p>
+      <div class="form-grid">
+        {{ field("asin", "ASIN", values, errors, warnings, extracted, placeholder="B0ABCDE123", maxlength=14, help="10 letters and numbers, usually starting B0.") }}
+        {{ field("title", "Product title", values, errors, warnings, extracted, maxlength=500, cls="span-2") }}
+        {{ field("brand", "Brand", values, errors, warnings, extracted, maxlength=120) }}
+        {{ field("category", "Category", values, errors, warnings, extracted, maxlength=200, placeholder="e.g. Home & Kitchen") }}
+        <div class="field {{ 'has-error' if errors.get('fee_category') }}">
+          <label for="f-fee_category">Referral fee category</label>
+          <select id="f-fee_category" name="fee_category" aria-describedby="h-fee_category">
+            {% for cat in fee_categories %}
+            <option value="{{ cat.key }}" {{ 'selected' if values.get('fee_category') == cat.key }}>{{ cat.label }} — {{ cat.rate_text }}</option>
+            {% endfor %}
+          </select>
+          {% if errors.get('fee_category') %}<p class="msg error">{{ icon("alert") }} {{ errors.fee_category }}</p>{% endif %}
+          <p class="help" id="h-fee_category">Sets the referral fee. Not sure? Check the category in Seller Central.</p>
+        </div>
+        {{ field("amazon_url", "Amazon URL", values, errors, warnings, extracted, inputmode="url", placeholder="https://www.amazon.co.uk/dp/B0ABCDE123", cls="wide") }}
+      </div>
+    </section>
+
+    <section class="form-section" aria-labelledby="sec-market">
+      <h3 id="sec-market">{{ icon("trend") }}Amazon market data {{ raw() }}</h3>
+      <p class="sub">From the Amazon listing (or Keepa if you use it). Leave a value blank if you don't know it — it is never guessed.</p>
+      {% if price_candidates is defined and price_candidates and price_candidates|length > 1 %}
+      <div class="notice warn price-picks" role="group" aria-labelledby="picks-h">
+        {{ icon("pound") }}
+        <div style="flex:1;min-width:0">
+          <h4 id="picks-h">Several prices were found — which is the selling price?</h4>
+          <p>The most likely one is filled in. Click another if it is the real current Buy Box price.</p>
+          <div class="candidates">
+            {% for c in price_candidates[:6] %}
+            <button type="button" class="cand {{ 'on' if loop.first }}" data-set-field="selling_price" data-value="{{ '%.2f'|format(c.value) }}" title="{{ c.context }}">
+              <b>£{{ '{:,.2f}'.format(c.value) }}</b><small>{{ c.context }}</small></button>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      <div class="form-grid">
+        {{ field("selling_price", "Amazon selling price", values, errors, warnings, extracted, prefix="£", inputmode="decimal", placeholder="0.00", required=True, help="Current Buy Box price, including VAT.") }}
+        {{ field("bsr", "Best Sellers Rank", values, errors, warnings, extracted, inputmode="numeric", placeholder="e.g. 8,500", required=True, help="Main category rank — lower sells more.") }}
+        {{ field("bsr_category", "BSR category", values, errors, warnings, extracted, maxlength=200) }}
+        {{ field("monthly_sales", "Estimated monthly sales (EST)", values, errors, warnings, extracted, inputmode="numeric", required=True, help="Units the whole listing sells a month — an estimate from Keepa, a sales estimator or “bought in past month”.") }}
+        {{ field("total_sellers", "Total sellers", values, errors, warnings, extracted, inputmode="numeric", required=True, help="All sellers offering this product new.") }}
+        {{ field("fba_sellers", "FBA sellers", values, errors, warnings, extracted, inputmode="numeric", required=True, help="Sellers using Fulfilled by Amazon (not counting Amazon itself).") }}
+      </div>
+    </section>
+
+    <section class="form-section" aria-labelledby="sec-sourcing">
+      <h3 id="sec-sourcing">{{ icon("pound") }}Sourcing and costs</h3>
+      <p class="sub">Your costs per unit. Enter prices excluding VAT if you are VAT registered.</p>
+      <div class="form-grid">
+        {{ field("sourcing_price", "Sourcing price per unit", values, errors, warnings, extracted, prefix="£", inputmode="decimal", placeholder="0.00", required=True, help="What you pay the supplier for one unit.") }}
+        {{ field("supplier", "Supplier", values, errors, warnings, extracted, maxlength=200, placeholder="Optional") }}
+        {{ field("shipping_prep", "Shipping / prep per unit", values, errors, warnings, extracted, prefix="£", inputmode="decimal", placeholder="0.00", help="Inbound shipping, prep and labels. Blank counts as £0.") }}
+        {{ field("other_costs", "Other costs per unit", values, errors, warnings, extracted, prefix="£", inputmode="decimal", placeholder="0.00", help="Packaging, bundling or anything else. Blank counts as £0.") }}
+      </div>
+    </section>
+
+    <section class="form-section" aria-labelledby="sec-fulfilment">
+      <h3 id="sec-fulfilment">{{ icon("box") }}Fulfilment, size and fees {{ est() }}</h3>
+      <p class="sub">Used to estimate the FBA fee. The packaged weight and size give the best estimate.</p>
+      <fieldset class="mb">
+        <legend>Fulfilment</legend>
+        <div class="choice-grid">
+          {% for key, label in fulfilment_labels.items() %}
+          <label class="choice"><input type="radio" name="fulfilment" value="{{ key }}" {{ 'checked' if (values.get('fulfilment') or 'FBA') == key }}>
+            <span>{{ label }}</span></label>
+          {% endfor %}
+        </div>
+        {% if errors.get('fulfilment') %}<p class="msg error">{{ icon("alert") }} {{ errors.fulfilment }}</p>{% endif %}
+      </fieldset>
+      <div class="form-grid">
+        {{ field("weight_g", "Packaged weight", values, errors, warnings, extracted, suffix="g", inputmode="decimal", help="Needed for the FBA fee (unless you enter the exact fee below).") }}
+        {{ field("length_cm", "Length", values, errors, warnings, extracted, suffix="cm", inputmode="decimal") }}
+        {{ field("width_cm", "Width", values, errors, warnings, extracted, suffix="cm", inputmode="decimal") }}
+        {{ field("height_cm", "Height", values, errors, warnings, extracted, suffix="cm", inputmode="decimal", help="Without size, the fee is estimated from weight alone.") }}
+      </div>
+      <details class="more mt" {{ 'open' if values.get('referral_fee_override') or values.get('fba_fee_override') or errors.get('referral_fee_override') or errors.get('fba_fee_override') }}>
+        <summary>{{ icon("chevron") }}I have the exact fees from Seller Central</summary>
+        <div class="form-grid mt-sm">
+          {{ field("referral_fee_override", "Referral fee per unit", values, errors, warnings, {}, prefix="£", inputmode="decimal", help="Replaces the estimate. Exclude the digital services fee and VAT.") }}
+          {{ field("fba_fee_override", "FBA fee per unit", values, errors, warnings, {}, prefix="£", inputmode="decimal", help="Replaces the estimate, including surcharges.") }}
+        </div>
+      </details>
+    </section>
+
+    <section class="form-section" aria-labelledby="sec-risk">
+      <h3 id="sec-risk">{{ icon("shield") }}Restrictions and risk</h3>
+      <p class="sub">The app never assumes you can sell an ASIN. Check it in Seller Central and record what you found.</p>
+      <fieldset class="mb">
+        <legend>Restriction status</legend>
+        <div class="choice-grid">
+          {% set restriction_help = {"unknown": "Not checked yet", "check": "You still need to check", "restricted": "Gated — approval needed", "ungated": "You checked and can sell it"} %}
+          {% for key, label in restriction_labels.items() %}
+          <label class="choice"><input type="radio" name="restriction_status" value="{{ key }}" {{ 'checked' if (values.get('restriction_status') or 'unknown') == key }}>
+            <span>{{ label }}<small>{{ restriction_help[key] }}</small></span></label>
+          {% endfor %}
+        </div>
+        {% if errors.get('restriction_status') %}<p class="msg error">{{ icon("alert") }} {{ errors.restriction_status }}</p>{% endif %}
+      </fieldset>
+      <fieldset>
+        <legend>Risk flags <span class="dim small">(tick all that apply)</span></legend>
+        <div class="checks-grid">
+          {% for key, label in risk_flags %}
+          <label class="check"><input type="checkbox" name="{{ key }}" value="1" {{ 'checked' if values.get(key) }}><span>{{ label }}</span>
+            {% if key in extracted %}<span class="xbadge {{ extracted[key].confidence }}" title="{{ extracted[key].note }}">Auto</span>{% endif %}</label>
+          {% endfor %}
+        </div>
+      </fieldset>
+    </section>
+
+    <section class="form-section" aria-labelledby="sec-notes">
+      <h3 id="sec-notes">{{ icon("file") }}Notes</h3>
+      <div class="form-grid">
+        {{ field("notes", "Notes (optional)", values, errors, warnings, {}, type="textarea", maxlength=5000, cls="wide", placeholder="Supplier contact, MOQ, case pack, anything to remember…") }}
+      </div>
+      {% if is_edit %}
+      <label class="check mt-sm"><input type="checkbox" name="mark_checked" value="1">
+        <span>I re-checked the Amazon data just now — update “Amazon data last checked”</span></label>
+      <p class="help">Changing the price, BSR, sales or seller counts updates it automatically.</p>
+      {% endif %}
+    </section>
+
+    <div class="form-actions">
+      <span class="note">{{ "Saving re-evaluates this product." if is_edit else "Nothing is saved until you press Save." }}</span>
+      <a class="btn ghost" href="{{ url_for('products.detail', pid=product.id) if is_edit else url_for('products.list_products') }}">Cancel</a>
+      <button class="btn" type="submit" data-loading>{{ icon("check") }}{{ "Save changes" if is_edit else "Save product" }}</button>
+    </div>
+  </div>
+
+  <aside class="card live" data-live-preview aria-labelledby="live-h">
+    <div class="card-head">
+      <div><h2 id="live-h">Live estimate {{ est() }}</h2><p class="sub">Updates as you type. Nothing is saved.</p></div>
+    </div>
+    <div data-live-body aria-live="polite">
+      <p class="muted small">Enter the Amazon price, your sourcing price and the packaged weight to see fees, profit, ROI and whether it qualifies.</p>
+    </div>
+    <p class="fineprint">{{ icon("info") }}<span>{{ C.FEE_DISCLAIMER }}</span></p>
+  </aside>
+</div>

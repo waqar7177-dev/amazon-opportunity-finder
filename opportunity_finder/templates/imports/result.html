@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Import finished{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Import finished</h1>
+    <p class="lead"><b>{{ source_name }}</b> — every new and updated product has been evaluated with your current settings.</p>
+  </div>
+  <div class="row">
+    <a class="btn ghost" href="{{ url_for('imports.start') }}">{{ icon("upload") }}Import another file</a>
+    <a class="btn" href="{{ url_for('products.list_products', sort='updated') }}">{{ icon("box") }}View products</a>
+  </div>
+</div>
+
+<section class="kpis" aria-label="Import result">
+  <div class="kpi"><span class="label"><span class="dot ok" aria-hidden="true">+</span>Imported</span><span class="value">{{ report.imported }}</span><span class="sub">new products</span></div>
+  <div class="kpi"><span class="label"><span class="dot mute" aria-hidden="true">↻</span>Updated</span><span class="value">{{ report.updated }}</span><span class="sub">existing products</span></div>
+  <div class="kpi"><span class="label"><span class="dot mute" aria-hidden="true">–</span>Skipped</span><span class="value">{{ report.skipped }}</span><span class="sub">already in your products</span></div>
+  <div class="kpi"><span class="label"><span class="dot bad" aria-hidden="true">✕</span>Not imported</span><span class="value">{{ report.failed|length }}</span><span class="sub">rows with problems</span></div>
+</section>
+
+{% if report.failed %}
+<section class="card mt" aria-labelledby="failed-h">
+  <div class="card-head"><div><h2 id="failed-h">{{ icon("alert") }}Rows not imported</h2><p class="sub">Fix these rows in your spreadsheet and import them again.</p></div></div>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th scope="col" class="num">Row</th><th scope="col">Reason</th></tr></thead>
+      <tbody>
+      {% for row_number, reasons in report.failed %}
+        <tr><td class="num">{{ row_number }}</td><td>{% for reason in reasons %}<p class="msg error">{{ icon("alert") }} {{ reason }}</p>{% endfor %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<div class="notice ok mt">{{ icon("check") }}<div><h4>No problems</h4><p>Every row was either imported, updated or skipped as you chose.</p></div></div>
+{% endif %}
+
+<div class="row mt">
+  <a class="btn ghost" href="{{ url_for('opportunities.index') }}">{{ icon("target") }}See opportunities</a>
+  <a class="btn ghost" href="{{ url_for('opportunities.rejected', tab='incomplete') }}">{{ icon("help") }}Products missing data</a>
+</div>
+{% endblock %}

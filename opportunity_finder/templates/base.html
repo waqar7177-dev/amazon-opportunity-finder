@@ -1,0 +1,77 @@
+{% from "_macros.html" import icon %}
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<meta name="robots" content="noindex">
+<title>{% block title %}{% endblock %} · Opportunity Finder</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2317191f'/%3E%3Cpolyline points='5 22 12 15 17 20 27 10' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v={{ APP_VERSION }}">
+<script src="{{ url_for('static', filename='js/app.js') }}?v={{ APP_VERSION }}" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+{% include "_icons.html" %}
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="{{ url_for('dashboard.index') }}" aria-label="Opportunity Finder — dashboard">
+      <span class="logo">{{ icon("trend") }}</span>
+      <span class="brand-text"><b>Opportunity Finder</b><small>Amazon UK</small></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      {% set links = [
+        ("dashboard", url_for("dashboard.index"), "Dashboard", "dashboard"),
+        ("add", url_for("products.new_product"), "Add Product", "plus"),
+        ("products", url_for("products.list_products"), "Products", "box"),
+        ("opportunities", url_for("opportunities.index"), "Opportunities", "target"),
+        ("rejected", url_for("opportunities.rejected"), "Rejected", "x-circle"),
+        ("settings", url_for("settings.index"), "Settings", "settings"),
+      ] %}
+      {% for key, href, label, ic in links %}
+      <a href="{{ href }}" class="{{ 'on' if active == key }}" {% if active == key %}aria-current="page"{% endif %}>{{ icon(ic) }}<span>{{ label }}</span></a>
+      {% endfor %}
+    </nav>
+    <a class="btn sm topbar-cta" href="{{ url_for('products.new_product') }}">{{ icon("plus") }}Add product</a>
+  </div>
+</header>
+
+<div class="toasts" aria-live="polite" aria-atomic="false">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    {% set tone = category if category in ("ok", "warn", "bad") else "info" %}
+    <div class="toast {{ tone }}" role="{{ 'alert' if tone == 'bad' else 'status' }}">
+      <span class="toast-ic">{{ icon({"ok": "check", "warn": "alert", "bad": "alert", "info": "info"}[tone]) }}</span>
+      <p>{{ message }}</p>
+      <button type="button" class="toast-x" aria-label="Dismiss message">{{ icon("x") }}</button>
+    </div>
+  {% endfor %}
+  {% endwith %}
+</div>
+
+<main id="main" class="page" tabindex="-1">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="foot">
+  <span>{{ icon("shield") }} Runs only on this computer — nothing is sent anywhere.</span>
+  <span>Fees, sales and profits marked <abbr class="est" title="Estimated">EST</abbr> are estimates, not guarantees.</span>
+  <span>v{{ APP_VERSION }}</span>
+</footer>
+
+<dialog class="modal" id="confirm-modal" aria-labelledby="confirm-title">
+  <form method="dialog" class="modal-card">
+    <div class="modal-ic">{{ icon("alert") }}</div>
+    <h2 id="confirm-title">Are you sure?</h2>
+    <p id="confirm-text"></p>
+    <div class="row end">
+      <button class="btn ghost" value="cancel" type="submit">Cancel</button>
+      <button class="btn danger" value="confirm" type="submit" id="confirm-ok">Delete</button>
+    </div>
+  </form>
+</dialog>
+{% block scripts %}{% endblock %}
+</body>
+</html>

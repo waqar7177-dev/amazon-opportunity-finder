@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Add product{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Add product</h1>
+    <p class="lead">Paste the Amazon UK product page for a head start, or type the details yourself. You review every value before anything is saved.</p>
+  </div>
+</div>
+
+<nav class="tabs method-tabs" aria-label="How to add a product">
+  <a class="tab {{ 'on' if method == 'paste' }}" href="{{ url_for('products.new_product', method='paste') }}" {% if method == 'paste' %}aria-current="page"{% endif %}>{{ icon("clipboard") }}Smart paste</a>
+  <a class="tab {{ 'on' if method == 'manual' }}" href="{{ url_for('products.new_product', method='manual') }}" {% if method == 'manual' %}aria-current="page"{% endif %}>{{ icon("edit") }}Manual entry</a>
+  <a class="tab" href="{{ url_for('imports.start') }}">{{ icon("upload") }}Bulk import</a>
+</nav>
+
+{% set show_form = method == 'manual' or parsed or errors or duplicates %}
+
+{% if method == 'paste' %}
+<section class="card mb" aria-labelledby="paste-h">
+  <form method="post" action="{{ url_for('products.smart_paste') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="card-head">
+      <div>
+        <h2 id="paste-h">{{ icon("clipboard") }}Smart paste</h2>
+        <p class="sub">On the Amazon UK product page press <kbd>Ctrl</kbd> + <kbd>A</kbd> then <kbd>Ctrl</kbd> + <kbd>C</kbd>, and paste it below.
+          For seller counts, also paste the “Other sellers on Amazon” list. Nothing is fetched from Amazon.</p>
+      </div>
+    </div>
+    <label for="pasted_text" class="sr-only">Amazon UK page text</label>
+    <textarea id="pasted_text" name="pasted_text" class="paste" placeholder="Paste the Amazon UK product page text here…" {{ '' if parsed else 'autofocus' }}>{{ pasted_text or '' }}</textarea>
+    <div class="row between mt-sm">
+      <span class="small muted">Looks for ASIN, title, brand, price, Best Sellers Rank, category, sellers, FBA sellers, weight and size.</span>
+      <div class="row tight">
+        {% if not show_form %}<a class="btn ghost" href="{{ url_for('products.new_product', method='manual') }}">Skip — type details</a>{% endif %}
+        <button class="btn" type="submit" data-loading>{{ icon("search") }}{{ "Extract again" if parsed else "Extract details" }}</button>
+      </div>
+    </div>
+  </form>
+</section>
+
+{% if parsed %}
+<section class="notice warn mb" role="status" aria-labelledby="verify-h">
+  {{ icon("alert") }}
+  <div>
+    <h4 id="verify-h">Auto extracted — please verify.</h4>
+    {% if extracted %}
+    <p>{{ extracted|length }} value{{ '' if extracted|length == 1 else 's' }} filled in from the pasted text {{ 'is' if extracted|length == 1 else 'are' }} highlighted below. Check each one against Amazon before saving — nothing has been saved yet.</p>
+    {% else %}
+    <p>Nothing could be extracted, so the form below is empty. You can still type the details yourself.</p>
+    {% endif %}
+    {% if parse_warnings or parse_info %}
+    <ul>
+      {% for w in parse_warnings or [] %}<li>{{ w }}</li>{% endfor %}
+      {% for w in parse_info or [] %}<li>{{ w }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+{% endif %}
+
+{% if show_form %}
+<form method="post" action="{{ url_for('products.create_product') }}" novalidate data-product-form>
+  <input type="hidden" name="method" value="{{ method }}">
+  <input type="hidden" name="extracted_json" value="{{ extracted_payload(extracted) }}">
+
+  {% if duplicates %}
+  <section class="notice warn mb" role="alert" aria-labelledby="dup-h" tabindex="-1" data-focus-me>
+    {{ icon("copy") }}
+    <div style="flex:1">
+      <h4 id="dup-h">This looks like a product you already have</h4>
+      <p>Nothing has been saved yet. Choose what to do with the details below.</p>
+      <div class="choice-grid mt-sm">
+        {% for d in duplicates %}
+        <label class="choice"><input type="radio" name="duplicate_id" value="{{ d.product.id }}" {{ 'checked' if loop.first }}>
+          <span><b>{{ d.product.display_name }}</b>
+            <small>{{ d.reason }}{% if d.product.evaluation %} · {{ d.product.evaluation.status_label }}{% endif %} · updated {{ d.product.updated_at|ago }} ·
+              <a href="{{ url_for('products.detail', pid=d.product.id) }}" target="_blank" rel="noopener">open {{ icon("external") }}</a></small></span></label>
+        {% endfor %}
+      </div>
+      <div class="row mt-sm">
+        <button class="btn" type="submit" name="duplicate_action" value="update">{{ icon("refresh") }}Update existing product</button>
+        <button class="btn ghost" type="submit" name="duplicate_action" value="create">{{ icon("copy") }}Create duplicate anyway</button>
+        <button class="btn ghost" type="submit" name="duplicate_action" value="cancel">Cancel</button>
+      </div>
+      <p class="small mt-sm">Updating copies the values below onto the selected product and re-evaluates it. Fields you left blank keep their current values.</p>
+    </div>
+  </section>
+  {% endif %}
+
+  {% include "products/_form.html" %}
+</form>
+{% endif %}
+{% endblock %}

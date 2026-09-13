@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, est, field %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Settings</h1>
+    <p class="lead">The rules and assumptions used to evaluate every product. Saving re-evaluates all {{ product_count }} product{{ '' if product_count == 1 else 's' }} straight away.
+      {% if updated_at %}Last saved {{ updated_at|ago }}.{% else %}Using the defaults.{% endif %}</p>
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('settings.save') }}" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if errors %}
+  <div class="notice bad mb" role="alert" tabindex="-1" data-error-summary>{{ icon("alert") }}
+    <div><h4>Some settings need fixing</h4><ul>{% for name, msg in errors.items() %}<li><a href="#f-{{ name }}">{{ msg }}</a></li>{% endfor %}</ul></div></div>
+  {% endif %}
+
+  {% for group in groups %}
+  <section class="card {{ 'mt' if not loop.first }}" id="group-{{ group.key }}" aria-labelledby="h-{{ group.key }}">
+    <div class="card-head"><div><h2 id="h-{{ group.key }}">{{ group.title }}{% if group.estimated %} {{ est() }}{% endif %}</h2><p class="sub">{{ group.lead }}</p></div></div>
+    <div class="form-grid">
+      {% for spec in group.fields %}
+        {% if spec.kind == "bool" %}
+        <div class="wide">
+          <label class="check"><input type="checkbox" id="f-{{ spec.name }}" name="{{ spec.name }}" value="1" {{ 'checked' if values.get(spec.name) }}>
+            <span>{{ spec.label }}<small class="help" style="display:block;margin:2px 0 0">{{ spec.help }}</small></span></label>
+        </div>
+        {% elif spec.kind == "choice" %}
+        <div class="field span-2 {{ 'has-error' if errors.get(spec.name) }}">
+          <label for="f-{{ spec.name }}">{{ spec.label }}</label>
+          <select id="f-{{ spec.name }}" name="{{ spec.name }}" aria-describedby="h-{{ spec.name }}">
+            {% for key, label in spec.choices.items() %}<option value="{{ key }}" {{ 'selected' if values.get(spec.name) == key }}>{{ label }}</option>{% endfor %}
+          </select>
+          {% if errors.get(spec.name) %}<p class="msg error">{{ icon("alert") }} {{ errors[spec.name] }}</p>{% endif %}
+          <p class="help" id="h-{{ spec.name }}">{{ spec.help }}</p>
+        </div>
+        {% else %}
+        {{ field(spec.name, spec.label, values, errors, {}, {}, inputmode="decimal" if spec.kind != "int" else "numeric",
+                 prefix="£" if spec.kind == "money" else None, suffix="%" if spec.kind == "pct" else None, help=spec.help) }}
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    {% if group.key == "rules" %}
+    <p class="fineprint">{{ icon("info") }}<span>Currently: {{ rules|map(attribute="text")|join(" · ") }}. A missing value never passes a rule — the product is marked Incomplete Data instead.</span></p>
+    {% elif group.key == "capture" %}
+    <p class="fineprint">{{ icon("info") }}<span>Conservative units = estimated monthly sales × capture rate, rounded down. Example with saved values: 1–{{ values.competition_medium_from|int - 1 }} FBA sellers → {{ values.capture_rate_low }}%, {{ values.competition_medium_from }}–{{ values.competition_high_from|int - 1 }} → {{ values.capture_rate_medium }}%, {{ values.competition_high_from }}+ → {{ values.capture_rate_high }}%. These are assumptions, not forecasts.</span></p>
+    {% elif group.key == "risk" %}
+    <details class="more mt">
+      <summary>{{ icon("chevron") }}How risk is scored</summary>
+      <p class="small muted mt-sm">Each factor adds points. HIGH at {{ risk_model.high_from }}+ points, MEDIUM at {{ risk_model.medium_from }}+, otherwise LOW. Restricted listings and possible IP concerns force HIGH on their own.</p>
+      <div class="table-wrap mt-sm">
+        <table class="data">
+          <thead><tr><th scope="col">Factor</th><th scope="col" class="num">Points</th><th scope="col">Forces HIGH</th></tr></thead>
+          <tbody>{% for fct in risk_model.factors %}<tr><td>{{ fct.label }}</td><td class="num">+{{ fct.points }}</td><td>{{ "Yes" if fct.forces_high else "—" }}</td></tr>{% endfor %}</tbody>
+        </table>
+      </div>
+    </details>
+    {% elif group.key == "fees" %}
+    <details class="more mt">
+      <summary>{{ icon("chevron") }}About the UK fee table (version {{ fee_table.version }})</summary>
+      <dl class="kv mt-sm">
+        <dt>Effective from</dt><dd>{{ fee_table.effective_from }}</dd>
+        <dt>Last checked</dt><dd>{{ fee_table.checked_on }}</dd>
+        <dt>Referral categories</dt><dd>{{ fee_table.referral_categories|length }}</dd>
+      </dl>
+      <ul class="small muted mt-sm" style="padding-left:18px">{% for s in fee_table.sources %}<li>{{ s }}</li>{% endfor %}{% for n in fee_table.notes %}<li>{{ n }}</li>{% endfor %}</ul>
+      <p class="small mt-sm">To update fees when Amazon changes them, edit <code>opportunity_finder/fees/uk_fee_table.json</code> — no code changes needed.</p>
+    </details>
+    <p class="fineprint">{{ icon("info") }}<span><b>Estimated fees.</b> {{ C.FEE_DISCLAIMER }}</span></p>
+    {% endif %}
+  </section>
+  {% endfor %}
+
+  <div class="card flush mt">
+    <div class="form-actions">
+      <span class="note">Saving re-evaluates every product with the new settings.</span>
+      <button class="btn" type="submit" data-loading>{{ icon("check") }}Save settings</button>
+    </div>
+  </div>
+</form>
+
+<div class="grid-2 mt">
+  <section class="card" id="backup" aria-labelledby="backup-h">
+    <div class="card-head"><div><h2 id="backup-h">{{ icon("database") }}Data and backups</h2><p class="sub">Everything is stored in one SQLite file on this computer.</p></div></div>
+    <p class="small muted">Database file</p>
+    <code class="path">{{ db_path }}</code>
+    <dl class="kv mt-sm">
+      <dt>Products stored</dt><dd>{{ product_count }}</dd>
+    </dl>
+    <form method="post" action="{{ url_for('settings.backup') }}" class="mt">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn ghost" type="submit" data-loading>{{ icon("download") }}Download a backup</button>
+    </form>
+    <form method="post" action="{{ url_for('settings.restore') }}" enctype="multipart/form-data" class="mt">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <h3 class="section-title">Restore a backup</h3>
+      <label class="drop">
+        {{ icon("upload") }}<b>Choose a backup file (.db)</b><small>made with “Download a backup”</small>
+        <span class="file-name" aria-live="polite"></span>
+        <input type="file" name="backup" accept=".db" aria-label="Backup file">
+      </label>
+      <label class="check mt-sm"><input type="checkbox" name="confirm" value="yes">
+        <span>I understand restoring replaces all current products and settings. A safety copy of the current data is kept.</span></label>
+      <div class="row end mt-sm">
+        <button class="btn danger" type="submit" data-confirm="Replace all current products and settings with this backup?" data-confirm-label="Restore">{{ icon("refresh") }}Restore backup</button>
+      </div>
+    </form>
+  </section>
+
+  <div class="stack">
+    <section class="card" aria-labelledby="prov-h">
+      <div class="card-head"><div><h2 id="prov-h">{{ icon("trend") }}Data providers</h2><p class="sub">Where product data comes from. Version 1 needs no external service.</p></div></div>
+      <ul class="checklist">
+        {% for pv in providers %}
+        <li><span class="mark {{ 'pass' if pv.active else 'missing' }}" aria-hidden="true">{{ '✓' if pv.active else '–' }}</span>
+          <span class="txt"><b>{{ pv.label }}</b><span class="rule">{{ pv.status }}</span></span>
+          <span class="badge {{ 'ok' if pv.active else 'mute' }}">{{ "Active" if pv.active else "Off" }}</span></li>
+        {% endfor %}
+      </ul>
+      <p class="fineprint">{{ icon("shield") }}<span>This app never scrapes Amazon and sends no data to any external service. Keepa is optional and disabled; see the README for how a future integration plugs in.</span></p>
+    </section>
+
+    <section class="card" aria-labelledby="reset-h">
+      <div class="card-head"><div><h2 id="reset-h">{{ icon("refresh") }}Reset to defaults</h2><p class="sub">Restore every setting above to its default. Your products are kept and re-evaluated.</p></div></div>
+      <form method="post" action="{{ url_for('settings.reset') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn danger-ghost" type="submit" data-confirm="Reset every setting to its default value? Your products are kept." data-confirm-label="Reset">Reset to defaults</button>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, status_badge %}
+{% block title %}Delete {{ product.display_name }}{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <div class="confirm">
+    <div class="empty-ic bad">{{ icon("trash") }}</div>
+    <h1>Delete this product?</h1>
+    <p class="lead">This permanently removes <b>{{ product.display_name }}</b>{% if product.asin %} ({{ product.asin }}){% endif %}, its notes and its history. It cannot be undone.</p>
+    <p>{{ status_badge(product.evaluation.status) }}</p>
+    <p class="muted">Want to keep it but hide it? <b>Archive</b> it instead — archived products are hidden from lists, the dashboard and exports.</p>
+    <div class="row center">
+      <form method="post" action="{{ url_for('products.delete', pid=product.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="confirm" value="yes">
+        <button class="btn danger" type="submit">{{ icon("trash") }}Yes, delete permanently</button>
+      </form>
+      <form method="post" action="{{ url_for('products.archive', pid=product.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn ghost" type="submit">{{ icon("archive") }}Archive instead</button>
+      </form>
+      <a class="btn ghost" href="{{ url_for('products.detail', pid=product.id) }}">Cancel</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

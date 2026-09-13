@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, status_badge, risk_badge, est, score_pill, money_cell, empty %}
+{% block title %}Opportunities{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Opportunities</h1>
+    <p class="lead">Qualified products ranked by a transparent Opportunity Score, and which of them could reach your {{ plan.target|money }} monthly target.</p>
+  </div>
+  <div class="row">
+    {% if ranked %}<a class="btn ghost" href="{{ url_for('exports.excel') }}" data-loading>{{ icon("download") }}Export Excel</a>{% endif %}
+    <a class="btn" href="{{ url_for('products.new_product') }}">{{ icon("plus") }}Add product</a>
+  </div>
+</div>
+
+<section class="card" aria-labelledby="plan-h">
+  <div class="card-head">
+    <div><h2 id="plan-h">{{ icon("target") }}Target profit plan</h2>
+      <p class="sub">Walks down the ranking and adds each product's conservative monthly profit until the target is reached.</p></div>
+    <a class="btn ghost sm" href="{{ url_for('settings.index') }}#group-target">Change target</a>
+  </div>
+  <div class="target-figures">
+    <div><span class="label">Target</span><span class="big">{{ plan.target|money }}</span></div>
+    <div><span class="label">Projected conservative total {{ est() }}</span><span class="big">{{ plan.total|money }}</span></div>
+    <div><span class="label">Target achieved</span><span class="big">{% if plan.achieved %}<span class="yes">{{ icon("check") }}YES</span>{% else %}<span class="no">{{ icon("x") }}NO</span>{% endif %}</span></div>
+  </div>
+  <div class="meter {{ 'done' if plan.achieved }} {{ 'empty' if plan.progress_pct == 0 }}" role="progressbar" aria-label="Plan total toward target"
+       aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ plan.progress_pct }}" aria-valuetext="{{ plan.progress_pct|pct }} of target">
+    <div class="meter-track"><div class="meter-fill" style="width: {{ plan.progress_pct }}%"></div></div>
+    <div class="meter-legend"><span><b>{{ plan.progress_pct|pct }}</b> of target</span>
+      <span>{% if plan.achieved %}{{ plan.selected|length }} product{{ '' if plan.selected|length == 1 else 's' }} needed{% else %}Short by {{ plan.shortfall|money }}{% endif %}</span></div>
+  </div>
+
+  {% if plan.selected %}
+  <h3 class="section-title">Selected opportunities</h3>
+  <ol class="plan">
+    {% for s in plan.selected %}
+    <li><span class="n">{{ loop.index }}</span>
+      <span class="name"><a href="{{ url_for('products.detail', pid=s.product_id) }}">{{ s.name }}</a>
+        <small>Rank #{{ s.rank }} · score {{ s.score }} · {{ s.conservative_units|whole }} units / month · stock {{ s.monthly_stock_investment|money }} / month</small></span>
+      <span class="amt">{{ s.conservative_monthly_profit|money }}</span>
+      <span class="run">running {{ s.running_total|money }}</span></li>
+    {% endfor %}
+  </ol>
+  <div class="plan-total"><span>Projected conservative total {{ est() }}</span><b>{{ plan.total|money }}</b></div>
+  {% if not plan.achieved %}<div class="notice warn mt">{{ icon("alert") }}<div><h4>Not enough qualified opportunities yet</h4><p>All {{ plan.selected|length }} qualified product{{ '' if plan.selected|length == 1 else 's' }} together reach {{ plan.total|money }}. Add or research more products to close the {{ plan.shortfall|money }} gap.</p></div></div>{% endif %}
+  {% else %}
+  <p class="muted mt">No qualified products with a positive conservative profit yet, so there is nothing to plan with.</p>
+  {% endif %}
+  <p class="fineprint">{{ icon("info") }}<span><b>Estimated — not guaranteed income.</b> Conservative profit assumes you win only your capture rate of each listing's estimated sales, at today's price and fees. Uses Qualified products only{% if settings.include_needs_verification_in_plan %} plus Needs Verification{% endif %}; High Risk products are never included. Plan needs about {{ plan.stock_investment|money }} of stock per month.</span></p>
+</section>
+
+<section class="card mt" aria-labelledby="rank-h">
+  <div class="card-head">
+    <div><h2 id="rank-h">{{ icon("trend") }}Ranked opportunities</h2><p class="sub">{{ ranked|length }} qualified product{{ '' if ranked|length == 1 else 's' }}. Ties are broken by ROI, then profit per unit, then conservative monthly profit.</p></div>
+  </div>
+  {% if ranked %}
+  <div class="table-wrap">
+    <table class="data" style="min-width:1000px">
+      <caption class="sr-only">Qualified products ranked best first</caption>
+      <thead><tr>
+        <th scope="col" class="num">Rank</th><th scope="col">Product</th><th scope="col" class="num">Score</th>
+        <th scope="col" class="num">ROI {{ est() }}</th><th scope="col" class="num">Profit / unit {{ est() }}</th>
+        <th scope="col" class="num">Cons. profit / mo {{ est() }}</th><th scope="col" class="num">Sales / mo {{ est() }}</th>
+        <th scope="col" class="num">FBA sellers</th><th scope="col">Risk</th><th scope="col">In plan</th>
+      </tr></thead>
+      <tbody>
+      {% for i in ranked %}{% set p = i.product %}{% set e = i.evaluation %}
+        <tr>
+          <td class="num"><b>{{ i.rank }}</b></td>
+          <td><div class="cell-product"><a class="product-link" href="{{ url_for('products.detail', pid=p.id) }}#score">{{ p.display_name }}</a>
+            <span class="meta"><span class="mono">{{ p.asin or "No ASIN" }}</span>{% if p.brand %} · {{ p.brand }}{% endif %}</span></div></td>
+          <td class="num">{{ score_pill(e.score.total if e.score else none) }}</td>
+          <td class="num">{{ e.profit.roi_pct|pct }}</td>
+          <td class="num">{{ money_cell(e.profit.net_profit) }}</td>
+          <td class="num"><b>{{ money_cell(e.profit.conservative_monthly_profit) }}</b></td>
+          <td class="num">{{ p.monthly_sales|whole }}</td>
+          <td class="num">{{ p.fba_sellers|whole }}{% if p.flag_amazon_sells %} <span class="tag" title="Amazon sells this listing">+ Amazon</span>{% endif %}</td>
+          <td>{{ risk_badge(e.risk.level) }}</td>
+          <td>{% if p.id in plan.selected_ids %}<span class="badge ok"><span class="sym" aria-hidden="true">✓</span>Yes</span>{% else %}<span class="dim">—</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  {{ empty("target", "No qualified products yet", "A product appears here once it passes every qualification rule and its risk is not HIGH.",
+           url_for('opportunities.rejected'), "See what failed", url_for('products.new_product'), "Add product") }}
+  {% endif %}
+</section>
+
+<div class="grid-2 mt">
+  <section class="card" aria-labelledby="how-h">
+    <div class="card-head"><div><h2 id="how-h">How the Opportunity Score works</h2><p class="sub">Six components, 100 points in total. Open a product to see its own breakdown.</p></div></div>
+    <ul class="score-rows">
+      {% for c in score_components %}
+      <li><span class="what"><b>{{ c.label }}</b><small>{{ c.rule }}</small></span><span></span><span class="p">{{ c.max }} pts</span></li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="card" aria-labelledby="review-h">
+    <div class="card-head"><div><h2 id="review-h">{{ icon("alert") }}Passed the rules — review first</h2><p class="sub">Not ranked until the risk or verification issue is resolved.</p></div></div>
+    {% if review %}
+    <ul class="checklist">
+      {% for i in review %}{% set e = i.evaluation %}
+      <li><span class="txt"><a class="product-link" href="{{ url_for('products.detail', pid=i.product.id) }}">{{ i.product.display_name }}</a>
+        <span class="rule">{{ e.summary[:2]|join(" · ") }}</span>
+        <span class="rule">Conservative {{ e.profit.conservative_monthly_profit|money }} / month {{ est() }}</span></span>
+        {{ status_badge(e.status) }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">Nothing to review — no High Risk or Needs Verification products.</p>
+    {% endif %}
+    <h3 class="section-title">Current qualification rules</h3>
+    <ul class="small" style="padding-left:18px;margin:0">{% for r in rules %}<li>{{ r.text }}</li>{% endfor %}</ul>
+  </section>
+</div>
+{% endblock %}

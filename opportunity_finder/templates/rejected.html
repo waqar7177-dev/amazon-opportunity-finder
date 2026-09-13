@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, status_badge, est, money_cell, empty %}
+{% block title %}Rejected &amp; incomplete{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Rejected &amp; incomplete</h1>
+    <p class="lead">Exactly why products did not qualify — and what data is still missing. Nothing missing is ever guessed.</p>
+  </div>
+  <a class="btn ghost" href="{{ url_for('settings.index') }}#group-rules">{{ icon("settings") }}Edit rules</a>
+</div>
+
+<nav class="tabs method-tabs" aria-label="Choose list">
+  <a class="tab {{ 'on' if tab == 'rejected' }}" href="{{ url_for('opportunities.rejected', tab='rejected') }}" {% if tab == 'rejected' %}aria-current="page"{% endif %}>
+    {{ icon("x-circle") }}Rejected <span class="count">{{ rejected|length }}</span></a>
+  <a class="tab {{ 'on' if tab == 'incomplete' }}" href="{{ url_for('opportunities.rejected', tab='incomplete') }}" {% if tab == 'incomplete' %}aria-current="page"{% endif %}>
+    {{ icon("help") }}Incomplete data <span class="count">{{ incomplete|length }}</span></a>
+</nav>
+
+<div class="detail-grid">
+  <section class="card" aria-live="polite">
+  {% if tab == 'rejected' %}
+    {% if rejected %}
+    <div class="table-wrap">
+      <table class="data" style="min-width:680px">
+        <caption class="sr-only">Rejected products and the rules they failed</caption>
+        <thead><tr><th scope="col">Product</th><th scope="col">Rejected because</th><th scope="col" class="num">Profit / unit {{ est() }}</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>
+        {% for i in rejected %}{% set p = i.product %}{% set e = i.evaluation %}
+          <tr>
+            <td><div class="cell-product"><a class="product-link" href="{{ url_for('products.detail', pid=p.id) }}">{{ p.display_name }}</a>
+              <span class="meta"><span class="mono">{{ p.asin or "No ASIN" }}</span> · updated {{ p.updated_at|ago }}</span></div></td>
+            <td><ul class="small" style="margin:0;padding-left:16px">{% for line in e.summary %}<li>{{ line }}</li>{% endfor %}</ul>
+              {% if e.missing %}<span class="small dim">Also missing: {{ e.missing|map(attribute="label")|join(", ") }}</span>{% endif %}</td>
+            <td class="num">{{ money_cell(e.profit.net_profit) }}</td>
+            <td class="nowrap"><a class="btn ghost sm" href="{{ url_for('products.edit', pid=p.id) }}">{{ icon("edit") }}Edit</a></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    {{ empty("check", "Nothing rejected", "No product currently fails a qualification rule.") }}
+    {% endif %}
+  {% else %}
+    {% if incomplete %}
+    <div class="table-wrap">
+      <table class="data" style="min-width:640px">
+        <caption class="sr-only">Products with missing data</caption>
+        <thead><tr><th scope="col">Product</th><th scope="col">Add this data</th><th scope="col" class="num">Complete</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>
+        {% for i in incomplete %}{% set p = i.product %}{% set e = i.evaluation %}
+          <tr>
+            <td><div class="cell-product"><a class="product-link" href="{{ url_for('products.detail', pid=p.id) }}">{{ p.display_name }}</a>
+              <span class="meta"><span class="mono">{{ p.asin or "No ASIN" }}</span> · {{ C.SOURCE_LABELS.get(p.source, p.source) }}</span></div></td>
+            <td><ul class="small" style="margin:0;padding-left:16px">{% for m in e.missing %}<li>{{ m.message }}</li>{% endfor %}</ul></td>
+            <td class="num"><span class="bar-mini" aria-hidden="true"><i style="width: {{ e.completeness.pct }}%"></i></span> {{ e.completeness.pct }}%</td>
+            <td class="nowrap"><a class="btn sm" href="{{ url_for('products.edit', pid=p.id) }}">{{ icon("edit") }}Add data</a></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    {{ empty("check", "No missing data", "Every product has the values needed to evaluate it.") }}
+    {% endif %}
+  {% endif %}
+  </section>
+
+  <aside class="stack">
+    <section class="card" aria-labelledby="common-h">
+      <div class="card-head"><div><h2 id="common-h">{{ "Most common failures" if tab == 'rejected' else "Most often missing" }}</h2>
+        <p class="sub">{{ "Which rules reject the most products." if tab == 'rejected' else "Fill these in to evaluate more products." }}</p></div></div>
+      {% set counts = failing if tab == 'rejected' else missing %}
+      {% if counts %}
+      {% set top_n = counts[0][1] %}
+      <ul class="dist">
+        {% for label, n in counts %}
+        <li><span class="small"><b>{{ label }}</b></span><span class="dist-bar" aria-hidden="true"><i style="width: {{ (n / top_n * 100)|round(0) }}%"></i></span><span class="dist-n">{{ n }}</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="muted">Nothing to show.</p>{% endif %}
+    </section>
+    <section class="card" aria-labelledby="rules-h">
+      <div class="card-head"><div><h2 id="rules-h">Current rules</h2><p class="sub">A product must pass all of them.</p></div></div>
+      <ul class="checklist">{% for r in rules %}<li><span class="mark missing" aria-hidden="true">•</span><span class="txt">{{ r.text }}</span></li>{% endfor %}</ul>
+      <p class="fineprint">{{ icon("info") }}<span>Change a rule in Settings and every product is re-evaluated immediately.</span></p>
+    </section>
+  </aside>
+</div>
+{% endblock %}

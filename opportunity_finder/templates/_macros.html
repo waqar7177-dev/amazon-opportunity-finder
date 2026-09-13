@@ -1,0 +1,101 @@
+{% macro icon(name, cls="") -%}
+<svg class="ic {{ cls }}" aria-hidden="true" focusable="false"><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}
+
+{% macro status_badge(status, size="") -%}
+{% set st = C.STATUS_STYLE[status] %}
+<span class="badge {{ st.tone }} {{ size }}" title="{{ C.STATUS_HELP[status] }}"><span class="sym" aria-hidden="true">{{ st.symbol }}</span>{{ C.STATUS_LABELS[status] }}</span>
+{%- endmacro %}
+
+{% macro risk_badge(level, size="") -%}
+{% set sym = {"LOW": "●", "MEDIUM": "◆", "HIGH": "▲"}[level] %}
+<span class="badge {{ C.RISK_TONE[level] }} {{ size }}"><span class="sym" aria-hidden="true">{{ sym }}</span>{{ level|title }} risk</span>
+{%- endmacro %}
+
+{% macro est(text="Estimated — an assumption, not a guaranteed figure.") -%}
+<abbr class="est" title="{{ text }}">EST</abbr>
+{%- endmacro %}
+
+{% macro raw() -%}
+<abbr class="raw" title="Raw data — as entered or pasted from Amazon.">RAW</abbr>
+{%- endmacro %}
+
+{% macro tip(text, label="What does this mean?") -%}
+{% set tid = "tip-" ~ (range(100000, 999999)|random) %}
+<span class="tip"><button type="button" class="tip-btn" aria-label="{{ label }}" aria-describedby="{{ tid }}">{{ icon("help") }}</button><span class="tip-body" role="tooltip" id="{{ tid }}">{{ text }}</span></span>
+{%- endmacro %}
+
+{% macro score_pill(score) -%}
+{% if score is none %}<span class="score none" title="No score until profit can be calculated">—</span>
+{% else %}<span class="score" title="Opportunity Score {{ score }} out of 100"><b>{{ score }}</b><small>/100</small></span>{% endif %}
+{%- endmacro %}
+
+{% macro money_cell(value) -%}
+<span class="{{ 'neg' if value is not none and value < 0 }}">{{ value|money }}</span>
+{%- endmacro %}
+
+{% macro empty(icon_name, title, text, url=None, label=None, secondary_url=None, secondary_label=None) -%}
+<div class="empty">
+  <div class="empty-ic">{{ icon(icon_name) }}</div>
+  <h3>{{ title }}</h3>
+  <p>{{ text }}</p>
+  {% if url %}<div class="row center">
+    <a class="btn" href="{{ url }}">{{ label }}</a>
+    {% if secondary_url %}<a class="btn ghost" href="{{ secondary_url }}">{{ secondary_label }}</a>{% endif %}
+  </div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro sort_th(query, key, label, cls="", estimated=False, help=None) -%}
+{% set is_on = query.sort == key %}
+<th scope="col" class="{{ cls }}" {% if is_on %}aria-sort="{{ 'ascending' if query.direction == 'asc' else 'descending' }}"{% endif %}>
+  <a class="th-sort {{ 'on' if is_on }}" href="?{{ query.sort_args(key) }}">{{ label }}{% if estimated %} {{ est() }}{% endif %}<span class="arrow" aria-hidden="true">{% if is_on %}{{ '▲' if query.direction == 'asc' else '▼' }}{% else %}↕{% endif %}</span></a>
+</th>
+{%- endmacro %}
+
+{% macro pager(query, result) -%}
+{% if result.pages > 1 %}
+<nav class="pager" aria-label="Pages">
+  {% if query.page > 1 %}<a href="?{{ query.url_args(page=query.page - 1) }}" rel="prev">‹ Previous</a>{% endif %}
+  {% for n in range(1, result.pages + 1) %}
+    {% if n == 1 or n == result.pages or (n - query.page)|abs <= 2 %}
+      {% if n == query.page %}<span class="on" aria-current="page">{{ n }}</span>{% else %}<a href="?{{ query.url_args(page=n) }}">{{ n }}</a>{% endif %}
+    {% elif (n - query.page)|abs == 3 %}<span class="gap">…</span>{% endif %}
+  {% endfor %}
+  {% if query.page < result.pages %}<a href="?{{ query.url_args(page=query.page + 1) }}" rel="next">Next ›</a>{% endif %}
+</nav>
+{% endif %}
+{%- endmacro %}
+
+{# ---------------------------------------------------------------- form fields #}
+{% macro extracted_badge(name, extracted) -%}
+{% if extracted and name in extracted %}{% set ex = extracted[name] %}
+<span class="xbadge {{ ex.confidence }}" title="{{ ex.note or '' }}{% if ex.evidence %} — found: “{{ ex.evidence }}”{% endif %}">Auto extracted · {{ ex.confidence }} confidence</span>
+{% endif %}
+{%- endmacro %}
+
+{% macro field(name, label, values, errors, warnings={}, extracted={}, type="text", help=None, prefix=None, suffix=None,
+               inputmode=None, placeholder="", required=False, step=None, min=None, autocomplete="off", maxlength=None, cls="") -%}
+{% set err = errors.get(name) %}{% set warn = warnings.get(name) %}
+<div class="field {{ cls }} {{ 'has-error' if err }} {{ 'is-extracted' if extracted and name in extracted }}">
+  <label for="f-{{ name }}">{{ label }}{% if required %} <span class="req">Needed to evaluate</span>{% endif %}</label>
+  {{ extracted_badge(name, extracted) }}
+  <div class="input {{ 'has-prefix' if prefix }} {{ 'has-suffix' if suffix }}">
+    {% if prefix %}<span class="affix pre" aria-hidden="true">{{ prefix }}</span>{% endif %}
+    {% if type == "textarea" %}
+    <textarea id="f-{{ name }}" name="{{ name }}" rows="4" {% if maxlength %}maxlength="{{ maxlength }}"{% endif %}
+      aria-describedby="{% if help %}h-{{ name }}{% endif %}{% if err %} e-{{ name }}{% endif %}" {% if err %}aria-invalid="true"{% endif %}
+      placeholder="{{ placeholder }}">{{ values.get(name, '') }}</textarea>
+    {% else %}
+    <input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ values.get(name, '') }}" autocomplete="{{ autocomplete }}"
+      {% if inputmode %}inputmode="{{ inputmode }}"{% endif %} {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+      {% if step %}step="{{ step }}"{% endif %} {% if min is not none %}min="{{ min }}"{% endif %} {% if maxlength %}maxlength="{{ maxlength }}"{% endif %}
+      aria-describedby="{% if help %}h-{{ name }}{% endif %}{% if err %} e-{{ name }}{% endif %}{% if warn %} w-{{ name }}{% endif %}" {% if err %}aria-invalid="true"{% endif %}>
+    {% endif %}
+    {% if suffix %}<span class="affix suf" aria-hidden="true">{{ suffix }}</span>{% endif %}
+  </div>
+  {% if err %}<p class="msg error" id="e-{{ name }}">{{ icon("alert") }} {{ err }}</p>{% endif %}
+  {% if warn and not err %}<p class="msg warning" id="w-{{ name }}">{{ icon("info") }} {{ warn }}</p>{% endif %}
+  {% if help %}<p class="help" id="h-{{ name }}">{{ help }}</p>{% endif %}
+</div>
+{%- endmacro %}

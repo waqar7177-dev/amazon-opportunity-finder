@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<section class="card narrow error-card">
+  <div class="empty">
+    <div class="empty-ic {{ 'bad' if code >= 500 else '' }}">{{ icon("alert" if code >= 500 else "help") }}</div>
+    <p class="eyebrow">Error {{ code }}</p>
+    <h1>{{ title }}</h1>
+    <p>{{ message }}</p>
+    <div class="row center">
+      <a class="btn" href="{{ url_for('dashboard.index') }}">{{ icon("dashboard") }}Go to the dashboard</a>
+      <a class="btn ghost" href="{{ url_for('products.list_products') }}">View products</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

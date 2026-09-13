@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, status_badge, risk_badge, est, raw, tip, score_pill, money_cell %}
+{% block title %}{{ product.display_name }}{% endblock %}
+{% block content %}
+{% set p = product %}{% set f = ev.fees %}{% set pr = ev.profit %}
+<a class="back" href="{{ url_for('products.list_products') }}">{{ icon("arrow-left") }}All products</a>
+
+{% if p.archived %}
+<div class="notice mb">{{ icon("archive") }}
+  <div style="flex:1"><h4>This product is archived</h4><p>It is hidden from the product list, dashboard, ranking and exports.</p></div>
+  <form method="post" action="{{ url_for('products.unarchive', pid=p.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn ghost sm" type="submit">Restore</button></form>
+</div>
+{% endif %}
+
+<header class="detail-head">
+  <div>
+    <div class="row tight">
+      {{ status_badge(ev.status, "lg") }} {{ risk_badge(ev.risk.level, "lg") }}
+      {% if in_plan %}<span class="badge ink lg">{{ icon("target") }}In target plan</span>{% endif %}
+    </div>
+    <h1 class="mt-sm">{{ p.display_name }}</h1>
+    <div class="meta">
+      {% if p.asin %}<span class="mono">{{ p.asin }}</span>{% endif %}
+      {% if p.brand %}<span>{{ p.brand }}</span>{% endif %}
+      {% if p.category %}<span>{{ p.category }}</span>{% endif %}
+      <span>Added via {{ C.SOURCE_LABELS.get(p.source, p.source) }}</span>
+      {% if p.amazon_url %}<a href="{{ p.amazon_url }}" target="_blank" rel="noopener noreferrer">View on Amazon {{ icon("external") }}</a>{% endif %}
+    </div>
+  </div>
+  <div class="actions row">
+    <a class="btn" href="{{ url_for('products.edit', pid=p.id) }}">{{ icon("edit") }}Edit</a>
+    <form method="post" action="{{ url_for('products.reevaluate', pid=p.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn ghost" type="submit" title="Recalculate with the current settings, fee table and today's date">{{ icon("refresh") }}Re-evaluate</button></form>
+    <form method="post" action="{{ url_for('products.duplicate', pid=p.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn ghost" type="submit" title="Create a copy you can edit, e.g. for a different supplier">{{ icon("copy") }}Duplicate</button></form>
+    {% if not p.archived %}
+    <form method="post" action="{{ url_for('products.archive', pid=p.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn ghost" type="submit">{{ icon("archive") }}Archive</button></form>
+    {% endif %}
+    <form method="post" action="{{ url_for('products.delete', pid=p.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="confirm" value="">
+      <button class="btn danger-ghost" type="submit" data-confirm="Delete “{{ p.display_name }}” and its history? This cannot be undone." data-confirm-label="Delete">{{ icon("trash") }}Delete</button></form>
+  </div>
+</header>
+
+{% set why = {
+  "qualified": ("ok", "check", "Qualified because"),
+  "rejected": ("bad", "x-circle", "Rejected because"),
+  "incomplete": ("", "help", "Incomplete data — add this to evaluate it"),
+  "needs_verification": ("warn", "alert", "Passes every rule, but check this before buying"),
+  "high_risk": ("bad", "alert", "Passes every rule, but the risk is HIGH"),
+}[ev.status] %}
+<section class="notice {{ why[0] }} mb" aria-labelledby="why-h">
+  {{ icon(why[1]) }}
+  <div>
+    <h4 id="why-h">{{ why[2] }}</h4>
+    <ul class="why">{% for line in ev.summary %}<li>{{ line }}</li>{% endfor %}</ul>
+    {% if ev.status == "rejected" and ev.missing %}<p class="small mt-sm">Also missing: {{ ev.missing|map(attribute="label")|join(", ") }}.</p>{% endif %}
+  </div>
+</section>
+
+<section class="metric-strip mb" aria-label="Key figures">
+  <div class="metric"><span class="label">Net profit / unit {{ est() }}</span><span class="value">{{ money_cell(pr.net_profit) }}</span></div>
+  <div class="metric"><span class="label">ROI {{ est() }}</span><span class="value">{{ pr.roi_pct|pct }}</span><span class="note">margin {{ pr.margin_pct|pct }}</span></div>
+  <div class="metric"><span class="label">Conservative / month {{ est() }}</span><span class="value">{{ money_cell(pr.conservative_monthly_profit) }}</span><span class="note">{{ pr.conservative_units|whole }} units</span></div>
+  <div class="metric"><span class="label">Theoretical / month {{ est() }}</span><span class="value">{{ money_cell(pr.theoretical_monthly_profit) }}</span><span class="note">if you won every sale</span></div>
+  <div class="metric"><span class="label">Opportunity Score</span><span class="value">{{ score_pill(ev.score.total if ev.score else none) }}</span>
+    <span class="note">{% if rank_position %}#{{ rank_position }} of {{ ranked_count }} qualified{% else %}ranked only when qualified{% endif %}</span></div>
+</section>
+
+<div class="detail-grid">
+  <div class="stack">
+    <section class="card" id="profit" aria-labelledby="profit-h">
+      <div class="card-head"><div><h2 id="profit-h">{{ icon("pound") }}Profit breakdown</h2><p class="sub">Per unit sold. Lines marked {{ est() }} are estimates.</p></div></div>
+      <dl class="kv">
+        <dt>Amazon selling price {{ raw() }}</dt><dd>{{ p.selling_price|money }}</dd>
+        {% if pr.output_vat %}<div class="minus" style="display:contents"><dt>Output VAT (you are VAT registered) {{ est() }}</dt><dd>{{ pr.output_vat|money }}</dd></div>{% endif %}
+        <div class="minus" style="display:contents"><dt>Referral fee {{ est() if f.referral_source == 'estimated' else '' }} <span class="dim small">{{ f.referral_rate_text }}</span></dt><dd>{{ f.referral_fee|money }}</dd></div>
+        <div class="minus" style="display:contents"><dt>FBA fulfilment fee {{ est() if f.fba_source == 'estimated' else '' }}
+          <span class="dim small">{% if f.fba_source == 'not_applicable' %}FBM — no FBA fee{% elif f.fba_source == 'override' %}entered from Seller Central{% elif f.size_tier_label %}{{ f.size_tier_label }}{% if f.fba_program == 'low_price' %} · Low-Price FBA{% endif %}{% if f.tier_basis == 'weight_only' %} · from weight only{% endif %}{% endif %}</span></dt>
+          <dd>{{ f.fba_fee|money if f.fba_source != 'not_applicable' else '£0.00' }}</dd></div>
+        {% if f.fuel_surcharge %}<div class="minus" style="display:contents"><dt class="sub-row">Fuel &amp; logistics surcharge (1.5%) {{ est() }}</dt><dd class="sub-row">{{ f.fuel_surcharge|money }}</dd></div>{% endif %}
+        {% if f.dangerous_goods_fee %}<div class="minus" style="display:contents"><dt class="sub-row">Dangerous goods / battery fee {{ est() }}</dt><dd class="sub-row">{{ f.dangerous_goods_fee|money }}</dd></div>{% endif %}
+        {% if f.digital_services_fee %}<div class="minus" style="display:contents"><dt class="sub-row">Digital services fee (2% of fees) {{ est() }}</dt><dd class="sub-row">{{ f.digital_services_fee|money }}</dd></div>{% endif %}
+        {% if f.vat_on_fees %}<div class="minus" style="display:contents"><dt class="sub-row">VAT on Amazon fees (20%) {{ est() }}</dt><dd class="sub-row">{{ f.vat_on_fees|money }}</dd></div>{% endif %}
+        <div class="minus" style="display:contents"><dt>Sourcing price {{ raw() }}</dt><dd>{{ p.sourcing_price|money }}</dd></div>
+        <div class="minus" style="display:contents"><dt>Shipping / prep</dt><dd>{{ pr.shipping_prep|money }}</dd></div>
+        <div class="minus" style="display:contents"><dt>Other costs</dt><dd>{{ pr.other_costs|money }}</dd></div>
+        <dt class="total">Net profit per unit {{ est() }} {{ tip(formulas.net_profit, "How net profit is calculated") }}</dt>
+        <dd class="total">{{ money_cell(pr.net_profit) }}</dd>
+      </dl>
+      <dl class="kv mt">
+        <dt>Total Amazon fees {{ est() }}</dt><dd>{{ f.total_fees|money }}</dd>
+        <dt>ROI {{ tip(formulas.roi, "How ROI is calculated") }}</dt><dd>{{ pr.roi_pct|pct }}</dd>
+        <dt>Net margin {{ tip(formulas.margin, "How margin is calculated") }}</dt><dd>{{ pr.margin_pct|pct }}</dd>
+        <dt>Highest sourcing price that still qualifies {{ tip(formulas.max_sourcing_price, "What is this?") }}</dt><dd>{{ pr.max_sourcing_price|money }}</dd>
+      </dl>
+      {% if ev.missing %}
+      <div class="notice mt">{{ icon("help") }}<div><h4>Missing to finish the calculation</h4><ul>{% for m in ev.missing %}<li>{{ m.message }}</li>{% endfor %}</ul></div></div>
+      {% endif %}
+      {% if f.warnings %}<div class="notice warn mt">{{ icon("alert") }}<div><ul>{% for w in f.warnings %}<li>{{ w }}</li>{% endfor %}</ul></div></div>{% endif %}
+      {% if f.notes or pr.notes %}<ul class="small muted mt" style="padding-left:18px">{% for n in f.notes + pr.notes %}<li>{{ n }}</li>{% endfor %}</ul>{% endif %}
+      <p class="fineprint">{{ icon("info") }}<span><b>Estimated fees.</b> {{ C.FEE_DISCLAIMER }} Fee table {{ f.table_version }}.</span></p>
+    </section>
+
+    <section class="card" id="qualification" aria-labelledby="qual-h">
+      <div class="card-head">
+        <div><h2 id="qual-h">{{ icon("check") }}Qualification results</h2><p class="sub">Every rule, with the value that decided it.</p></div>
+        <a class="btn ghost sm" href="{{ url_for('settings.index') }}#group-rules">Edit rules</a>
+      </div>
+      <ul class="checklist">
+        {% for r in ev.rules %}
+        {% set sym = {"pass": "✓", "fail": "✕", "missing": "?", "not_applicable": "!"}[r.status] %}
+        <li><span class="mark {{ r.status }}" aria-hidden="true">{{ sym }}</span>
+          <span class="txt"><span class="sr-only">{{ {"pass": "Pass", "fail": "Fail", "missing": "Missing", "not_applicable": "Check"}[r.status] }}: </span>{{ r.message }}
+            <span class="rule">{{ r.label }}</span></span></li>
+        {% endfor %}
+        {% for v in ev.verification %}
+        <li><span class="mark warn" aria-hidden="true">!</span><span class="txt"><span class="sr-only">Verify: </span>{{ v }}<span class="rule">Verification check</span></span></li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="card" id="risk" aria-labelledby="risk-h">
+      <div class="card-head">
+        <div><h2 id="risk-h">{{ icon("shield") }}Risk analysis</h2>
+          <p class="sub">{{ ev.risk.score }} risk points. HIGH at {{ risk_model.high_from }}+ points or any factor that forces HIGH; MEDIUM at {{ risk_model.medium_from }}+.</p></div>
+        {{ risk_badge(ev.risk.level, "lg") }}
+      </div>
+      {% if ev.risk.reasons %}
+      <ul class="checklist">
+        {% for r in ev.risk.reasons %}
+        <li><span class="pts">+{{ r.points }}</span>
+          <span class="txt"><b>{{ r.label }}</b>{% if r.forces_high %} <span class="badge bad">Forces HIGH</span>{% endif %}<span class="rule">{{ r.detail }}</span></span></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">No risk factors were triggered. Still check restrictions, IP and listing quality yourself before buying.</p>
+      {% endif %}
+    </section>
+
+    <section class="card" id="score" aria-labelledby="score-h">
+      <div class="card-head"><div><h2 id="score-h">{{ icon("trend") }}Opportunity Score breakdown</h2><p class="sub">Six published components add up to 100. No black box.</p></div>
+        {{ score_pill(ev.score.total if ev.score else none) }}</div>
+      {% if ev.score %}
+      <ul class="score-rows">
+        {% for c in ev.score.components %}
+        <li><span class="what">{{ c.label }}: <b>{{ c.value_text }}</b><small>{{ c.rule }}</small></span>
+          <span class="bar-mini" aria-hidden="true"><i style="width: {{ (c.points / c.max * 100)|round(0) }}%"></i></span>
+          <span class="p">{{ c.points|round(1) }}/{{ c.max }}</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">No score yet — it needs the net profit, which needs the selling price, sourcing price and fee inputs.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="card" id="amazon" aria-labelledby="amazon-h">
+      <div class="card-head"><div><h2 id="amazon-h">{{ icon("trend") }}Amazon data {{ raw() }}</h2><p class="sub">As entered — last checked {{ p.amazon_checked_at|ago }}.</p></div></div>
+      <dl class="kv">
+        <dt>ASIN</dt><dd class="mono">{{ p.asin or "—" }}</dd>
+        <dt>Selling price</dt><dd>{{ p.selling_price|money }}</dd>
+        <dt>Best Sellers Rank</dt><dd>{{ p.bsr|whole }}{% if p.bsr_category %} <span class="dim small">in {{ p.bsr_category }}</span>{% endif %}</dd>
+        <dt>Estimated monthly sales {{ est() }}</dt><dd>{{ p.monthly_sales|whole }}</dd>
+        <dt>Total sellers</dt><dd>{{ p.total_sellers|whole }}</dd>
+        <dt>FBA sellers</dt><dd>{{ p.fba_sellers|whole }}</dd>
+        <dt>Amazon sells this listing</dt><dd>{{ "Yes" if p.flag_amazon_sells else "No" }}</dd>
+        <dt>Referral fee category</dt><dd>{{ (p.fee_category or 'everything_else')|replace('_', ' ')|capitalize }}</dd>
+        <dt>Amazon data last checked</dt><dd>{{ p.amazon_checked_at|datetime }}</dd>
+      </dl>
+    </section>
+
+    <section class="card" id="competition" aria-labelledby="comp-h">
+      <div class="card-head"><div><h2 id="comp-h">{{ icon("target") }}Competition &amp; sales model {{ est() }}</h2><p class="sub">Assumptions, not forecasts.</p></div></div>
+      <dl class="kv">
+        <dt>FBA competition</dt><dd>{{ (pr.capture_tier or "unknown")|title }}</dd>
+        <dt>Capture rate {{ tip(formulas.capture_rate, "How the capture rate is chosen") }}</dt><dd>{{ pr.capture_rate_pct|pct }}</dd>
+        <dt>Conservative units / month {{ tip(formulas.conservative_units, "How conservative units are calculated") }}</dt><dd>{{ pr.conservative_units|whole }}</dd>
+        <dt>Conservative revenue / month</dt><dd>{{ pr.conservative_monthly_revenue|money }}</dd>
+        <dt>Theoretical revenue / month {{ tip(formulas.theoretical_revenue, "How theoretical revenue is calculated") }}</dt><dd>{{ pr.theoretical_monthly_revenue|money }}</dd>
+        <dt>Stock needed / month {{ tip(formulas.stock_investment, "How stock investment is calculated") }}</dt><dd>{{ pr.monthly_stock_investment|money }}</dd>
+      </dl>
+      <p class="small muted mt-sm">{{ pr.capture_explanation }}</p>
+    </section>
+
+    <section class="card" id="sourcing" aria-labelledby="src-h">
+      <div class="card-head"><div><h2 id="src-h">{{ icon("pound") }}Sourcing data</h2></div></div>
+      <dl class="kv">
+        <dt>Sourcing price</dt><dd>{{ p.sourcing_price|money }}</dd>
+        <dt>Supplier</dt><dd>{{ p.supplier or "—" }}</dd>
+        <dt>Shipping / prep</dt><dd>{{ p.shipping_prep|money }}</dd>
+        <dt>Other costs</dt><dd>{{ p.other_costs|money }}</dd>
+        <dt>Fulfilment</dt><dd>{{ p.fulfilment }}</dd>
+        <dt>Packaged weight</dt><dd>{{ p.weight_g|weight }}</dd>
+        <dt>Dimensions</dt><dd>{% if p.length_cm and p.width_cm and p.height_cm %}{{ p.length_cm|number }} × {{ p.width_cm|number }} × {{ p.height_cm|number }} cm{% else %}—{% endif %}</dd>
+        <dt>Restriction status</dt><dd>{{ C.RESTRICTION_LABELS[p.restriction_status] }}</dd>
+        <dt>Risk flags</dt><dd>{% set flags = C.RISK_FLAGS|selectattr(0, "in", p.flags)|map(attribute=1)|list %}{{ flags|join(", ") if flags else "None" }}</dd>
+      </dl>
+    </section>
+
+    <section class="card" id="notes" aria-labelledby="notes-h">
+      <div class="card-head"><div><h2 id="notes-h">{{ icon("file") }}Notes</h2></div><a class="btn ghost sm" href="{{ url_for('products.edit', pid=p.id) }}#f-notes">Edit</a></div>
+      {% if p.notes %}<p style="white-space:pre-wrap">{{ p.notes }}</p>{% else %}<p class="muted">No notes yet.</p>{% endif %}
+    </section>
+
+    <section class="card" id="history" aria-labelledby="hist-h">
+      <div class="card-head"><div><h2 id="hist-h">{{ icon("clock") }}History</h2><p class="sub">Data completeness {{ ev.completeness.pct }}%.</p></div></div>
+      <dl class="kv">
+        <dt>Created</dt><dd>{{ p.created_at|datetime }}</dd>
+        <dt>Last edited</dt><dd>{{ p.updated_at|datetime }}</dd>
+        <dt>Last evaluated</dt><dd>{{ p.evaluated_at|datetime }}</dd>
+        <dt>Amazon data last checked</dt><dd>{{ p.amazon_checked_at|datetime }}</dd>
+      </dl>
+      {% if ev.completeness.missing_optional %}<p class="small muted mt-sm">Optional details not recorded: {{ ev.completeness.missing_optional|join(", ") }}.</p>{% endif %}
+
+      <h3 class="section-title">Value history</h3>
+      {% if history.snapshots %}
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th scope="col">When</th><th scope="col" class="num">Price</th><th scope="col" class="num">BSR</th><th scope="col" class="num">Sellers</th><th scope="col" class="num">FBA</th><th scope="col" class="num">Sales</th><th scope="col" class="num">Cost</th></tr></thead>
+          <tbody>
+          {% for s in history.snapshots[:12] %}
+            <tr><td class="nowrap" title="{{ s.source }}">{{ s.captured_at|date }}</td><td class="num">{{ s.selling_price|money }}</td><td class="num">{{ s.bsr|whole }}</td>
+              <td class="num">{{ s.total_sellers|whole }}</td><td class="num">{{ s.fba_sellers|whole }}</td><td class="num">{{ s.monthly_sales|whole }}</td><td class="num">{{ s.sourcing_price|money }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}<p class="muted small">No history yet.</p>{% endif %}
+
+      <h3 class="section-title">Evaluation history</h3>
+      <ul class="checklist">
+        {% for h in history.evaluations[:10] %}
+        <li><span class="txt">{{ h.evaluated_at|datetime }} <span class="rule">{{ {"created": "Created", "edited": "Edited", "manual": "Re-evaluated", "auto": "Settings or date changed", "import": "Imported", "merged": "Updated from new data"}.get(h.trigger, h.trigger) }} · profit {{ h.net_profit|money }} · score {{ h.opportunity_score if h.opportunity_score is not none else "—" }}</span></span>
+          {{ status_badge(h.status) }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+</div>
+{% endblock %}

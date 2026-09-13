@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Check your import{% endblock %}
+{% block content %}
+{% set counts = preview.counts %}
+<a class="back" href="{{ url_for('imports.start') }}">{{ icon("arrow-left") }}Choose a different file</a>
+<div class="page-head">
+  <div>
+    <h1>Check your import</h1>
+    <p class="lead"><b>{{ table.source_name }}</b> · {{ counts.total }} row{{ '' if counts.total == 1 else 's' }}{% if table.blank_rows %} ({{ table.blank_rows }} blank row{{ '' if table.blank_rows == 1 else 's' }} ignored){% endif %}. Nothing has been saved yet.</p>
+  </div>
+</div>
+
+<section class="kpis mb" aria-label="Import summary">
+  <div class="kpi"><span class="label"><span class="dot ok" aria-hidden="true">+</span>New products</span><span class="value">{{ counts['import'] }}</span><span class="sub">will be added</span></div>
+  <div class="kpi"><span class="label"><span class="dot mute" aria-hidden="true">↻</span>Updates</span><span class="value">{{ counts['update'] }}</span><span class="sub">existing products refreshed</span></div>
+  <div class="kpi"><span class="label"><span class="dot mute" aria-hidden="true">–</span>Skipped</span><span class="value">{{ counts.skip }}</span><span class="sub">already in your products</span></div>
+  <div class="kpi"><span class="label"><span class="dot bad" aria-hidden="true">✕</span>Not imported</span><span class="value">{{ counts.invalid }}</span><span class="sub">rows with problems</span></div>
+</section>
+
+{% if preview.mapping_errors %}
+<div class="notice bad mb" role="alert">{{ icon("alert") }}<div><h4>Fix the column matching first</h4><ul>{% for e in preview.mapping_errors %}<li>{{ e }}</li>{% endfor %}</ul></div></div>
+{% endif %}
+
+<form method="post" action="{{ url_for('imports.preview', token=token) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <div class="grid-2">
+    <section class="card" aria-labelledby="map-h">
+      <div class="card-head"><div><h2 id="map-h">1. Match your columns</h2><p class="sub">We matched what we recognised. Change anything that is wrong.</p></div></div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th scope="col">Your column</th><th scope="col">First value</th><th scope="col">Import as</th></tr></thead>
+          <tbody>
+          {% for header in table.headers %}{% set idx = loop.index0 %}
+            <tr>
+              <td><b>{{ header or "(no heading)" }}</b></td>
+              <td class="small muted">{{ (table.rows[0][idx] if table.rows and idx < table.rows[0]|length else "")|string|truncate(28) }}</td>
+              <td>
+                <label class="sr-only" for="map_{{ idx }}">Import “{{ header }}” as</label>
+                <select id="map_{{ idx }}" name="map_{{ idx }}" data-autosubmit>
+                  <option value="">— Don't import —</option>
+                  {% for key, title, _ in fields %}<option value="{{ key }}" {{ 'selected' if mapping.get(idx) == key }}>{{ title }}</option>{% endfor %}
+                </select>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="dup-h">
+      <div class="card-head"><div><h2 id="dup-h">2. Products you already have</h2>
+        <p class="sub">{{ preview.rows|selectattr("duplicate")|list|length }} row(s) match an existing product by ASIN, URL or title + brand.</p></div></div>
+      <fieldset>
+        <legend class="sr-only">What to do with matching rows</legend>
+        <div class="choice-grid">
+          {% for key, label in policies.items() %}
+          <label class="choice"><input type="radio" name="policy" value="{{ key }}" {{ 'checked' if preview.policy == key }} data-autosubmit>
+            <span><b>{{ {"skip": "Skip", "update": "Update existing", "create": "Create duplicates"}[key] }}</b><small>{{ label }}</small></span></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <p class="help mt">Updating keeps an existing product's values wherever the file's cell is empty.</p>
+      <div class="row end mt">
+        <button class="btn ghost sm" type="submit" name="step" value="refresh" data-refresh>{{ icon("refresh") }}Update preview</button>
+      </div>
+    </section>
+  </div>
+
+  <section class="card mt" aria-labelledby="rows-h">
+    <div class="card-head">
+      <div><h2 id="rows-h">3. Review rows</h2><p class="sub">Row numbers match your spreadsheet (row 1 is the headings).</p></div>
+      <div class="chips" data-row-filter role="group" aria-label="Show rows">
+        {% for key, label in [("all", "All"), ("import", "New"), ("update", "Update"), ("skip", "Skipped"), ("invalid", "Problems")] %}
+        <button type="button" class="chip {{ 'on' if key == 'all' }}" data-filter="{{ key }}" aria-pressed="{{ 'true' if key == 'all' else 'false' }}">{{ label }}
+          <span class="count">{{ counts.total if key == 'all' else counts[key] }}</span></button>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="table-wrap tall">
+      <table class="data" style="min-width:760px">
+        <thead><tr><th scope="col" class="num">Row</th><th scope="col">Result</th><th scope="col">Product</th><th scope="col" class="num">Amazon price</th><th scope="col" class="num">Sourcing</th><th scope="col">Details</th></tr></thead>
+        <tbody>
+        {% for r in preview.rows[:row_limit] %}
+          {% set badge = {"import": ("ok", "+", "New"), "update": ("ink", "↻", "Update"), "skip": ("mute", "–", "Skip"), "invalid": ("bad", "✕", "Not imported")}[r.action] %}
+          <tr data-action-row="{{ r.action }}">
+            <td class="num">{{ r.row_number }}</td>
+            <td><span class="badge {{ badge[0] }}"><span class="sym" aria-hidden="true">{{ badge[1] }}</span>{{ badge[2] }}</span></td>
+            <td><div class="cell-product">
+              {% if r.product %}<b>{{ r.product.display_name|truncate(70) }}</b><span class="meta mono">{{ r.product.asin or "" }}</span>
+              {% else %}<span class="muted">{{ (r.raw.values()|list|first|string)|truncate(50) if r.raw else "—" }}</span>{% endif %}
+            </div></td>
+            <td class="num">{{ (r.product.selling_price if r.product else none)|money }}</td>
+            <td class="num">{{ (r.product.sourcing_price if r.product else none)|money }}</td>
+            <td class="small">
+              {% for e in r.errors %}<p class="msg error">{{ icon("alert") }} {{ e }}</p>{% endfor %}
+              {% for w in r.warnings %}<p class="msg warning">{{ icon("info") }} {{ w }}</p>{% endfor %}
+              {% if r.duplicate %}<p>{{ r.duplicate.reason }} as <a href="{{ url_for('products.detail', pid=r.duplicate.product.id) }}" target="_blank" rel="noopener">{{ r.duplicate.product.display_name|truncate(40) }}</a></p>{% endif %}
+              {% if not r.errors and not r.warnings and not r.duplicate %}<span class="dim">Looks good</span>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if preview.rows|length > row_limit %}<p class="small muted mt-sm">Showing the first {{ row_limit }} of {{ preview.rows|length }} rows. Every row is still checked and imported.</p>{% endif %}
+  </section>
+
+  <div class="card flush mt">
+    <div class="form-actions">
+      <span class="note">{{ counts['import'] }} new product{{ '' if counts['import'] == 1 else 's' }} and {{ counts['update'] }} update{{ '' if counts['update'] == 1 else 's' }} will be saved. {{ counts.invalid }} row{{ '' if counts.invalid == 1 else 's' }} will not be imported.</span>
+      <a class="btn ghost" href="{{ url_for('imports.start') }}">Cancel</a>
+      <button class="btn" type="submit" name="step" value="confirm" data-loading {{ 'disabled' if preview.mapping_errors or not (counts['import'] or counts['update']) }}>
+        {{ icon("check") }}Import {{ counts['import'] + counts['update'] }} product{{ '' if counts['import'] + counts['update'] == 1 else 's' }}</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

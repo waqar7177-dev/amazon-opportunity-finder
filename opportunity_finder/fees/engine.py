@@ -34,6 +34,20 @@ def referral_categories(table: dict | None = None) -> list[dict]:
     return head + rest
 
 
+def describe_referral_category(cat: dict) -> str:
+    """Plain-English rate, e.g. '8% up to £10, 15% above £10'."""
+    if cat["type"] == "flat":
+        return f"{cat['rate']:g}%"
+    bands = cat["bands"]
+    parts = []
+    for i, (limit, rate) in enumerate(bands):
+        if cat["type"] == "whole_price":
+            parts.append(f"{rate:g}% up to £{limit:g}" if limit is not None else f"{rate:g}% above £{bands[i - 1][0]:g}")
+        else:
+            parts.append(f"{rate:g}% of the first £{limit:g}" if limit is not None else f"{rate:g}% of the rest")
+    return ", ".join(parts)
+
+
 def category_by_key(key: str | None, table: dict | None = None) -> dict | None:
     table = table or load_fee_table()
     for cat in table["referral_categories"]:
