@@ -194,6 +194,24 @@ def _dims(text: str | None) -> tuple[float, float, float] | None:
         return None
 
 
+CAROUSEL_HINT = re.compile(r"carousel|sims|sp_detail|similarities|rhf|recommend|sponsored-products", re.I)
+
+
+def _own_bought_badge(soup: BeautifulSoup) -> tuple[int | None, str | None]:
+    """The listing's own "X+ bought in past month" badge. Badges inside recommendation carousels belong to
+    other products and are ignored."""
+    for text in soup.find_all(string=BOUGHT_RE):
+        foreign = False
+        for parent in text.parents:
+            marker = " ".join([parent.get("id") or "", *parent.get("class", [])]) if parent.name else ""
+            if parent.name and (CAROUSEL_HINT.search(marker) or parent.get("data-a-carousel-options") is not None):
+                foreign = True
+                break
+        if not foreign:
+            return bought_lower_bound(str(text))
+    return None, None
+
+
 def _price_to_pay(soup: BeautifulSoup) -> float | None:
     core = soup.select_one("#corePriceDisplay_desktop_feature_div, #corePrice_feature_div, #apex_desktop")
     if core is not None:
@@ -289,7 +307,7 @@ def parse_product_page(html: str, asin_hint: str | None = None) -> ProductPage:
         if len({round(w) for _, w in found}) > 1 and max(w for _, w in found) > 1.25 * min(w for _, w in found):
             p.weight_note = "Amazon lists different weights for this item; the heaviest was used."
 
-    p.bought_lower_bound, p.bought_text = bought_lower_bound(page_text)
+    p.bought_lower_bound, p.bought_text = _own_bought_badge(soup)
 
     merchant = soup.select_one("[offer-display-feature-name='desktop-merchant-info'] .offer-display-feature-text-message")
     fulfiller = soup.select_one("[offer-display-feature-name='desktop-fulfiller-info'] .offer-display-feature-text-message")

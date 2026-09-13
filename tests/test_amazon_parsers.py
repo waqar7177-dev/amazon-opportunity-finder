@@ -42,6 +42,13 @@ def test_product_page_missing_values_are_none():
     assert p.no_featured_offer and "No Buy Box" in p.price_note
 
 
+def test_carousel_badges_belong_to_other_products():
+    only_carousel = parse_product_page(product_page("B0X", "T", bought=None, carousel_bought="10K+"))
+    assert only_carousel.bought_lower_bound is None
+    both = parse_product_page(product_page("B0X", "T", bought="50+", carousel_bought="10K+"))
+    assert both.bought_lower_bound == 50
+
+
 def test_conflicting_weights_use_heaviest_with_note():
     p = parse_product_page(product_page("B0X", "T", package="30 x 20 x 9 cm; 90 g", item_weight="1.56 Kilograms"))
     assert p.weight_g == 1560 and "heaviest" in p.weight_note

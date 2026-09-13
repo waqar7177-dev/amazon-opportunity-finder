@@ -265,11 +265,16 @@ class BrandResearch:
             "bsr": put("bsr", parsed.bsr, "amazon_product_page"),
             "availability": put("availability", parsed.availability, "amazon_product_page"),
         }
-        bought = parsed.bought_lower_bound or snap.get("bought_lower_bound")
-        values["monthly_sales"] = put(
-            "monthly_sales", bought, "amazon_bought_badge", kind="estimated", certainty="uncertain",
-            note=(f"Lower bound from Amazon's “{parsed.bought_text or snap.get('bought_text')}” badge." if bought
-                  else "Amazon shows no “bought in past month” figure for this listing; no free source provides monthly sales."))
+        if parsed.bought_lower_bound:
+            bought, note = parsed.bought_lower_bound, f"Lower bound from Amazon's “{parsed.bought_text}” badge on the product page."
+        elif snap.get("bought_lower_bound"):
+            bought = snap["bought_lower_bound"]
+            note = (f"Lower bound from Amazon's “{snap.get('bought_text')}” badge on the search result "
+                    "(Amazon may include other sizes or variations of this listing).")
+        else:
+            bought = None
+            note = "Amazon shows no “bought in past month” figure for this listing; no free source provides monthly sales."
+        values["monthly_sales"] = put("monthly_sales", bought, "amazon_bought_badge", kind="estimated", certainty="uncertain", note=note)
         if offers is not None and (offers.pinned or offers.offers or offers.other_count is not None):
             uncertain = not offers.complete
             values["total_sellers"] = put("total_sellers", offers.total_sellers, "amazon_offers")

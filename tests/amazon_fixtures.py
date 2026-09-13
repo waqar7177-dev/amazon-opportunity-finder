@@ -32,7 +32,7 @@ def product_page(asin: str, title: str, *, brand_line: str = "Brand: Brightnest"
                  bsr: str | None = "3,456 in Home & Kitchen", crumbs=("Home & Kitchen", "Kitchen & Dining", "Storage"),
                  package: str | None = "24.5 x 17 x 13.5 cm; 1.02 kg", item_weight: str | None = None,
                  bought: str | None = "1K+", availability: str = "In stock", seller: str = "HomeGoods UK",
-                 no_featured: bool = False) -> str:
+                 no_featured: bool = False, carousel_bought: str | None = None) -> str:
     crumb_html = "".join(f'<li><span><a href="/b?node={i}">{c}</a></span></li>' for i, c in enumerate(crumbs))
     if price is not None:
         whole, fraction = f"{price:.2f}".split(".")
@@ -57,6 +57,9 @@ def product_page(asin: str, title: str, *, brand_line: str = "Brand: Brightnest"
     merchant = ('<div offer-display-feature-name="desktop-merchant-info"><div class="offer-display-feature-text">'
                 f'<span class="a-size-small offer-display-feature-text-message">{seller}</span></div></div>')
     bought_html = f'<span id="social-proofing-faceout-title-tk_bought">{bought} bought in past month</span>' if bought else ""
+    if carousel_bought:  # another product's badge in a "customers also bought" carousel
+        bought_html += (f'<div id="sims-consolidated-2_feature_div"><div class="a-carousel-container" data-a-carousel-options="{{}}">'
+                        f'<li class="a-carousel-card"><span>Other bar</span><span>{carousel_bought} bought in past month</span></li></div></div>')
     return (f"<html><body><div id='wayfinding-breadcrumbs_feature_div'><ul>{crumb_html}</ul></div>"
             f'<span id="productTitle"> {title} </span><a id="bylineInfo">{brand_line}</a>{bought_html}'
             f'{price_html}{featured}<div id="availability"><span>{availability}</span></div>{merchant}'
