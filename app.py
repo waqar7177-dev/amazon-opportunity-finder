@@ -54,14 +54,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Open {url} in your browser, or start on another port: python app.py --port 8878\n")
         return 1
 
-    print("=" * 64)
-    print(f"  {APP_NAME} v{APP_VERSION}")
-    print(f"  Open:  {url}")
-    print(f"  Data:  {config.DATA_DIR}")
-    print("  Stop:  press Ctrl+C in this window")
-    print("=" * 64)
+    # The launch scripts print no address of their own: this banner reads the same config the server uses.
+    banner = ["=" * 64, f"  {APP_NAME} v{APP_VERSION}", f"  Open:  {url}", f"  Data:  {config.DATA_DIR}",
+              "  Stop:  press Ctrl+C in this window", "=" * 64]
     if config.HOST not in LOCAL_HOSTS:
-        print(f"  WARNING: listening on {config.HOST} — other devices on your network can reach this app.")
+        banner.append(f"  WARNING: listening on {config.HOST} — other devices on your network can reach this app.")
+    print("\n".join(banner), flush=True)
 
     open_browser = config.OPEN_BROWSER if args.open_browser is None else args.open_browser
     if open_browser:

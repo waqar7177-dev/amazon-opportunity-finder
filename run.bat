@@ -65,7 +65,7 @@ if errorlevel 1 (
 )
 
 rem --- 4. Start ----------------------------------------------------------------------
-echo   [4/4] Starting the app at http://127.0.0.1:8877  (set AOF_PORT in .env to change it)
+echo   [4/4] Starting the app - open the address shown below.
 echo.
 ".venv\Scripts\python.exe" app.py
 echo.

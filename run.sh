@@ -48,6 +48,6 @@ echo "  [3/4] Preparing the data folder and database ..."
 .venv/bin/python app.py --init-only
 
 # 4. Start
-echo "  [4/4] Starting the app at http://127.0.0.1:${AOF_PORT:-8877}"
+echo "  [4/4] Starting the app - open the address shown below."
 echo
 exec .venv/bin/python app.py

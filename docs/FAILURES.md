@@ -17,6 +17,7 @@ Ask these before committing. Each line came from a real fault below.
 7. Does test data for a search or filter test contain the search term in *any* searchable field (brand, supplier, notes), not just the one you meant? *(F7)*
 8. Have you looked at a screenshot of every changed page, at desktop and phone width — not only asserted that its text is present? *(F8)*
 9. Before a test flags browser console output as an error, is that output a consequence of behaviour the app does on purpose? *(F9)*
+10. Is every address or port shown to the user read from the same configuration the server uses — not typed a second time into a script or message? *(F10)*
 
 ---
 
@@ -140,3 +141,17 @@ Ask these before committing. Each line came from a real fault below.
 - **Fix:** the smoke test ignores exactly those two resource-status messages; real JavaScript errors
   (`pageerror` and other console errors) still fail it.
 - **Checklist line:** 9.
+
+## F10 — `run.bat` announced port 8877 while the app was on another port
+
+- **What broke:** step 4 of `run.bat` printed a hard-coded "Starting the app at http://127.0.0.1:8877", and
+  `run.sh` printed `${AOF_PORT:-8877}`. Neither reads `.env`, so anyone who changed the port was told the wrong
+  address (`run.sh` was right only when the port came from the shell environment).
+- **Measurement:** 2026-09-13, fresh-install test from a clean `git clone` with `AOF_PORT=8879`: the run log
+  said "[4/4] Starting the app at http://127.0.0.1:8877" while `/health` answered 200 on 8879 and nothing
+  listened for it on 8877. The Python banner with the real address did not appear in the redirected log
+  because stdout was block-buffered.
+- **Why nothing caught it:** every earlier run used the default port, where the duplicated number happens to match.
+- **Fix:** both scripts say "open the address shown below"; `app.py` prints its banner (built from `Config`)
+  with `flush=True` so it appears immediately even when output is redirected.
+- **Checklist line:** 10.

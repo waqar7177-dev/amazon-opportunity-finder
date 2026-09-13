@@ -9,6 +9,7 @@ venv/
 data/
 *.db
 *.db-journal
+*.log
 
 # Secrets
 .env
